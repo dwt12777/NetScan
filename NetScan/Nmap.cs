@@ -1,10 +1,5 @@
 ﻿using NetScan.Models;
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Xml;
 using System.Xml.Serialization;
 
@@ -12,17 +7,18 @@ namespace NetScan
 {
     public class Nmap
     {
-        public static nmaprun RunNmap()
+        public static nmaprun RunNmap(string nmapSearch)
         {
             nmaprun result;
 
             var tempFile = Path.Combine(Path.GetTempPath(), Path.ChangeExtension("nmap-" + Guid.NewGuid().ToString(), ".xml"));
 
-            using (StreamReader nmapStream = ExecuteCommandLine("nmap", $"-sn 192.168.22.0/24 -oX {tempFile}"))
+            using (StreamReader nmapStream = ExecuteCommandLine("nmap", $"-sn {nmapSearch} -oX {tempFile}"))
             {
-               nmapStream.ReadToEnd();
+                Console.WriteLine($"Scanning network {nmapSearch} ...");
+                nmapStream.ReadToEnd();
+                Console.WriteLine();
             }
-
 
             XmlReaderSettings settings = new XmlReaderSettings();
             settings.DtdProcessing = DtdProcessing.Ignore;
@@ -38,7 +34,7 @@ namespace NetScan
             fileStream.Close();
 
             File.Delete(tempFile);
-           
+
             return result;
         }
 
@@ -53,6 +49,7 @@ namespace NetScan
             startInfo.FileName = file;
             startInfo.Arguments = arguments;
 
+            // To Do: throw exception if nmap not installed
             Process process = Process.Start(startInfo);
 
             return process.StandardOutput;
