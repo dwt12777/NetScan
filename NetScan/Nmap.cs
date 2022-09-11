@@ -11,9 +11,11 @@ namespace NetScan
         {
             nmaprun result;
 
+            var nmapPath = @"C:\Program Files (x86)\Nmap\nmap.exe";
+
             var tempFile = Path.Combine(Path.GetTempPath(), Path.ChangeExtension("nmap-" + Guid.NewGuid().ToString(), ".xml"));
 
-            using (StreamReader nmapStream = ExecuteCommandLine("nmap", $"-sn {nmapSearch} -oX {tempFile}"))
+            using (StreamReader nmapStream = ExecuteCommandLine(nmapPath, $"-sn {nmapSearch} -oX {tempFile}"))
             {
                 Console.WriteLine($"Scanning network {nmapSearch} ...");
                 nmapStream.ReadToEnd();

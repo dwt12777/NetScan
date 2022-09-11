@@ -14,6 +14,9 @@ Console.WriteLine();
 Console.WriteLine($"Total Hosts Online: {hosts.Count}");
 Console.WriteLine();
 
+Console.Write("Press any key to exit: ");
+Console.ReadKey();
+
 void WriteHostsToScreen(List<HostInfo> hostInfos)
 {
     var maxIpLength = hostInfos.Max(h => h.IpAddress.Length);
