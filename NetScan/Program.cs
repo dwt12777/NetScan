@@ -3,21 +3,13 @@ using NetScan.Models;
 
 var network = new Network();
 
-var hosts = network.GetAllHosts();
-
-WriteHostsToScreen(hosts);
+WriteHostsToScreen(network.Hosts);
 
 Console.WriteLine();
-Console.WriteLine($"Total Hosts Online: {hosts.Count}");
+Console.WriteLine($"Total Hosts Online: {network.Hosts.Count}");
 Console.WriteLine();
-
-var defaultGatewayIp = network.GetTraceRoute("google.com");
-
-
-var test = defaultGatewayIp.FirstOrDefault().Address.ToString();
 
 Console.ReadLine();
-
 
 //Console.Write("Press any key to exit...");
 //Console.ReadKey();

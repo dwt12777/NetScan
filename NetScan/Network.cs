@@ -10,6 +10,8 @@ namespace NetScan
     {
         public IPAddress LocalIp { get; set; }
         public IPAddress LocalSubnetMask { get; set; }
+        public List<HostInfo> Hosts { get; set; }
+        public HostInfo DefaultGateway { get; }
 
         private string _nmapTargetString;
 
@@ -18,9 +20,11 @@ namespace NetScan
             LocalIp = GetLocalIpAddress();
             LocalSubnetMask = GetSubnetMask(LocalIp);
             _nmapTargetString = GetNmapTargetString(LocalIp, LocalSubnetMask);
+            Hosts = GetAllHosts();
+            DefaultGateway = GetDefaultGateway();
         }
 
-        public List<HostInfo> GetAllHosts()
+        private List<HostInfo> GetAllHosts()
         {
             var nmapResult = Nmap.RunNmap(_nmapTargetString);
             var hosts = new List<HostInfo>();
@@ -147,12 +151,16 @@ namespace NetScan
             return sb.ToString();
         }
 
-        public IEnumerable<IPAddress> GetTraceRoute(string hostname)
+        private HostInfo GetDefaultGateway()
         {
             // following are similar to the defaults in the "traceroute" unix command.
             const int timeout = 10000;
             const int maxTTL = 30;
             const int bufferSize = 32;
+
+            var hostname = "reardentools.com";
+
+            var hostGateway = new HostInfo();
 
             byte[] buffer = new byte[bufferSize];
             new Random().NextBytes(buffer);
@@ -166,13 +174,17 @@ namespace NetScan
 
                     // we've found a route at this ttl
                     if (reply.Status == IPStatus.Success || reply.Status == IPStatus.TtlExpired)
-                        yield return reply.Address;
+                    {
+                        hostGateway = Hosts.FirstOrDefault(h => h.IpAddress == reply.Address.ToString());
+                        break;
+                    }
 
                     // if we reach a status other than expired or timed out, we're done searching or there has been an error
                     if (reply.Status != IPStatus.TtlExpired && reply.Status != IPStatus.TimedOut)
                         break;
                 }
             }
+            return hostGateway;
         }
     }
 }
