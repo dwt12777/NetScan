@@ -13,10 +13,13 @@ namespace NetScan
         public List<HostInfo> Hosts { get; set; }
         public HostInfo DefaultGateway { get; }
 
+        private readonly Nmap _nMap;
+
         private string _nmapTargetString;
 
-        public Network()
+        public Network(Nmap nMap)
         {
+            _nMap = nMap;
             LocalIp = GetLocalIpAddress();
             LocalSubnetMask = GetSubnetMask(LocalIp);
             _nmapTargetString = GetNmapTargetString(LocalIp, LocalSubnetMask);
@@ -26,7 +29,7 @@ namespace NetScan
 
         private List<HostInfo> GetAllHosts()
         {
-            var nmapResult = Nmap.RunNmap(_nmapTargetString);
+            var nmapResult = _nMap.RunNmap(_nmapTargetString);
             var hosts = new List<HostInfo>();
             foreach (var h in nmapResult.host)
             {

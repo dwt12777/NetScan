@@ -1,18 +1,38 @@
 ﻿using NetScan;
 using NetScan.Models;
-
-var network = new Network();
-
-WriteHostsToScreen(network.Hosts);
+using System.Reflection;
 
 Console.WriteLine();
-Console.WriteLine($"Total Hosts Online: {network.Hosts.Count}");
-Console.WriteLine();
+Console.WriteLine(GetWelcomeMessage());
 
-Console.ReadLine();
+var nmapPath = @"C:\Program Files (x86)\Nmap\nmap.exe";
+var nmap = new Nmap(nmapPath);
 
-//Console.Write("Press any key to exit...");
-//Console.ReadKey();
+if (nmap.IsValidNmapClient)
+{
+    Console.WriteLine($"Scanning network with Nmap {nmap.NmapVersion}...");
+    Console.WriteLine();
+
+    var network = new Network(nmap);
+
+    WriteHostsToScreen(network.Hosts);
+
+    Console.WriteLine();
+    Console.WriteLine($"Total Hosts Online: {network.Hosts.Count}");
+    Console.WriteLine();
+
+}
+else
+{
+    Console.WriteLine(@"Nmap must be installed for this program to work correctly. Go to https://nmap.org/ to download and install it.");
+}
+
+string GetWelcomeMessage()
+{
+    string version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
+    var welcome = $"NetScan {version}";
+    return welcome;
+}
 
 void WriteHostsToScreen(List<HostInfo> hostInfos)
 {

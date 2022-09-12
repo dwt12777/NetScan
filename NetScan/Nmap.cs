@@ -7,20 +7,39 @@ namespace NetScan
 {
     public class Nmap
     {
-        public static nmaprun RunNmap(string nmapSearch)
+        public string NmapPath { get; set; }
+        public bool IsValidNmapClient { get; }
+        public string NmapVersion { get; }
+
+        public Nmap(string nmapPath)
+        {
+            NmapPath = nmapPath;
+            IsValidNmapClient = CheckNmap(nmapPath);
+            NmapVersion = GetNmapVersion(nmapPath);
+        }
+
+        private string? GetNmapVersion(string nmapPath)
+        {
+            var versionInfo = FileVersionInfo.GetVersionInfo(nmapPath);
+
+            if (versionInfo.ProductVersion != null)
+            {
+                return versionInfo.FileVersion.ToString();
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+        public nmaprun RunNmap(string nmapSearch)
         {
             nmaprun result;
 
-            var nmapPath = @"C:\Program Files (x86)\Nmap\nmap.exe";
-
-            var nmapVersion = GetNmapVersion(nmapPath);
-
             var tempFile = Path.Combine(Path.GetTempPath(), Path.ChangeExtension("nmap-" + Guid.NewGuid().ToString(), ".xml"));
 
-            using (StreamReader nmapStream = ExecuteCommandLine(nmapPath, $"-sn {nmapSearch} -oX {tempFile}"))
+            using (StreamReader nmapStream = ExecuteCommandLine(NmapPath, $"-sn {nmapSearch} -oX {tempFile}"))
             {
-                Console.WriteLine($"Scanning network {nmapSearch} with Nmap v{nmapVersion}...");
-                Console.WriteLine();
                 nmapStream.ReadToEnd();
             }
 
@@ -42,13 +61,7 @@ namespace NetScan
             return result;
         }
 
-        private static string GetNmapVersion(string nmapPath)
-        {
-            var versionInfo = FileVersionInfo.GetVersionInfo(nmapPath);
-            return versionInfo.FileVersion;
-        }
-
-        private static StreamReader ExecuteCommandLine(String file, String arguments = "")
+        private StreamReader ExecuteCommandLine(String file, String arguments = "")
         {
             ProcessStartInfo startInfo = new ProcessStartInfo();
             startInfo.CreateNoWindow = true;
@@ -64,5 +77,11 @@ namespace NetScan
             return process.StandardOutput;
         }
 
+        public bool CheckNmap(string nmapPath)
+        {
+            // To Do: test if it's actually nmap
+            return File.Exists(nmapPath);
+
+        }
     }
 }
