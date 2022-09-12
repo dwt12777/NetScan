@@ -20,7 +20,6 @@ if (nmap.IsValidNmapClient)
     Console.WriteLine();
     Console.WriteLine($"Total Hosts Online: {network.Hosts.Count}");
     Console.WriteLine();
-
 }
 else
 {
