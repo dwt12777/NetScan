@@ -40,7 +40,7 @@ namespace NetScan
                 hostInfo.MacAddress = h.address.FirstOrDefault(a => a.addrtype == "mac")?.addr;
                 hostInfo.MacVendor = h.address.FirstOrDefault(a => a.addrtype == "mac")?.vendor;
 
-                if (hostInfo.MacAddress == null && hostInfo.IpAddress == GetIpByHost(hostInfo.HostName).ToString())
+                if (hostInfo.MacAddress == null && hostInfo.IpAddress == GetLocalIpAddress().ToString())
                 {
                     hostInfo.MacAddress = GetLocalMacAddress();
                 }
@@ -73,7 +73,7 @@ namespace NetScan
                 return string.Empty;
             }
 
-            return null;
+            return string.Empty;
         }
 
         public IPAddress GetIpByHost(string hostName)
