@@ -13,13 +13,15 @@ namespace NetScan
 
             var nmapPath = @"C:\Program Files (x86)\Nmap\nmap.exe";
 
+            var nmapVersion = GetNmapVersion(nmapPath);
+
             var tempFile = Path.Combine(Path.GetTempPath(), Path.ChangeExtension("nmap-" + Guid.NewGuid().ToString(), ".xml"));
 
             using (StreamReader nmapStream = ExecuteCommandLine(nmapPath, $"-sn {nmapSearch} -oX {tempFile}"))
             {
-                Console.WriteLine($"Scanning network {nmapSearch} ...");
-                nmapStream.ReadToEnd();
+                Console.WriteLine($"Scanning network {nmapSearch} with Nmap v{nmapVersion}...");
                 Console.WriteLine();
+                nmapStream.ReadToEnd();
             }
 
             XmlReaderSettings settings = new XmlReaderSettings();
@@ -40,6 +42,11 @@ namespace NetScan
             return result;
         }
 
+        private static string GetNmapVersion(string nmapPath)
+        {
+            var versionInfo = FileVersionInfo.GetVersionInfo(nmapPath);
+            return versionInfo.FileVersion;
+        }
 
         private static StreamReader ExecuteCommandLine(String file, String arguments = "")
         {

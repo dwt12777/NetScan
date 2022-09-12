@@ -1,8 +1,5 @@
 ﻿using NetScan;
 using NetScan.Models;
-using System.Net;
-using System.Net.NetworkInformation;
-using System.Net.Sockets;
 
 var network = new Network();
 
@@ -14,8 +11,16 @@ Console.WriteLine();
 Console.WriteLine($"Total Hosts Online: {hosts.Count}");
 Console.WriteLine();
 
-Console.Write("Press any key to exit: ");
-Console.ReadKey();
+var defaultGatewayIp = network.GetTraceRoute("google.com");
+
+
+var test = defaultGatewayIp.FirstOrDefault().Address.ToString();
+
+Console.ReadLine();
+
+
+//Console.Write("Press any key to exit...");
+//Console.ReadKey();
 
 void WriteHostsToScreen(List<HostInfo> hostInfos)
 {

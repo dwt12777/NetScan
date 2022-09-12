@@ -146,5 +146,33 @@ namespace NetScan
 
             return sb.ToString();
         }
+
+        public IEnumerable<IPAddress> GetTraceRoute(string hostname)
+        {
+            // following are similar to the defaults in the "traceroute" unix command.
+            const int timeout = 10000;
+            const int maxTTL = 30;
+            const int bufferSize = 32;
+
+            byte[] buffer = new byte[bufferSize];
+            new Random().NextBytes(buffer);
+
+            using (var pinger = new Ping())
+            {
+                for (int ttl = 1; ttl <= maxTTL; ttl++)
+                {
+                    PingOptions options = new PingOptions(ttl, true);
+                    PingReply reply = pinger.Send(hostname, timeout, buffer, options);
+
+                    // we've found a route at this ttl
+                    if (reply.Status == IPStatus.Success || reply.Status == IPStatus.TtlExpired)
+                        yield return reply.Address;
+
+                    // if we reach a status other than expired or timed out, we're done searching or there has been an error
+                    if (reply.Status != IPStatus.TtlExpired && reply.Status != IPStatus.TimedOut)
+                        break;
+                }
+            }
+        }
     }
 }
