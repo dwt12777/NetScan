@@ -1,10 +1,9 @@
 ﻿using NetScan;
 using NetScan.Models;
 using System.Reflection;
+using System.Text;
 
-Console.WriteLine();
 Console.WriteLine(GetWelcomeMessage());
-Console.WriteLine();
 
 var networkScanner = new NetworkScanner();
 
@@ -16,20 +15,27 @@ Console.WriteLine();
 Console.WriteLine($"Total Hosts Found: {networkScanner.NetworkInfo.Hosts.Count}");
 Console.WriteLine();
 
-WriteHostsToScreen(networkScanner.NetworkInfo.Hosts);
+Console.WriteLine(WriteHostsToScreen(networkScanner.NetworkInfo.Hosts));
 
 string GetWelcomeMessage()
 {
+    var sb = new StringBuilder();
+
     string version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
-    var welcome = $"NetScan {version}";
-    return welcome;
+        
+    sb.AppendLine();
+    sb.AppendLine($"NetScan {version}");
+    return sb.ToString();
 }
 
-void WriteHostsToScreen(List<HostInfo> hostInfos)
+string WriteHostsToScreen(List<HostInfo> hostInfos)
 {
+    var sb = new StringBuilder();
+
     if (hostInfos == null || hostInfos.Count == 0)
     {
-        return;
+        sb.AppendLine("No hosts found");
+        return sb.ToString();
     }
 
     hostInfos = hostInfos.OrderBy(h => h.IpAddressLabel).ToList();
@@ -40,11 +46,13 @@ void WriteHostsToScreen(List<HostInfo> hostInfos)
 
     var colSpace = 2;
 
-    Console.WriteLine("IP Address".PadRight(maxIpLength + colSpace) + "Host Name".PadRight(maxHostLength + colSpace) + "MAC Address".PadRight(maxMacLength + colSpace));
-    Console.WriteLine(new String('-', maxIpLength).PadRight(maxIpLength + colSpace) + new String('-', maxHostLength).PadRight(maxHostLength + colSpace) + new String('-', maxMacLength).PadRight(maxMacLength + colSpace));
+    sb.AppendLine("IP Address".PadRight(maxIpLength + colSpace) + "Host Name".PadRight(maxHostLength + colSpace) + "MAC Address".PadRight(maxMacLength + colSpace));
+    sb.AppendLine(new String('-', maxIpLength).PadRight(maxIpLength + colSpace) + new String('-', maxHostLength).PadRight(maxHostLength + colSpace) + new String('-', maxMacLength).PadRight(maxMacLength + colSpace));
 
     foreach (var hi in hostInfos)
     {
-        Console.WriteLine($"{hi.IpAddress.ToString().PadRight(maxIpLength + 2)}{hi.HostName.PadRight(maxHostLength + 2)}{hi.MacAddress.PadRight(maxMacLength + 2)}");
+        sb.AppendLine($"{hi.IpAddress.ToString().PadRight(maxIpLength + 2)}{hi.HostName.PadRight(maxHostLength + 2)}{hi.MacAddress.PadRight(maxMacLength + 2)}");
     }
+
+    return sb.ToString();
 }

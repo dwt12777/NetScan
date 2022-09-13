@@ -1,17 +1,8 @@
 ﻿using NetScan.Models;
-using System;
-using System.Collections.Generic;
-using System.Linq;
+using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
-using System.Net;
-using System.Text;
-using System.Threading.Tasks;
 using System.Text.RegularExpressions;
-using System.Net.Mail;
-using System.Runtime.InteropServices;
-using System.Diagnostics;
-using static System.Formats.Asn1.AsnWriter;
 using IPAddressCollection = System.Net.IPAddressCollection;
 
 namespace NetScan
@@ -39,35 +30,6 @@ namespace NetScan
             this.NetworkInfo.Hosts = ArpPing(ipRange);
             
             return this.NetworkInfo.Hosts;
-        }
-
-        private List<HostInfo> ArpPing(IPAddressCollection ipRange)
-        {
-            var hosts = new List<HostInfo>();
-
-            List<Thread> threads = new List<Thread>();
-
-            foreach (IPAddress ip in ipRange)
-            {
-                Thread thread = new Thread(() =>
-                {
-                    var isValidIp = ArpHelper.SendArpRequest(IPAddress.Parse(ip.ToString()));
-
-                    if (isValidIp)
-                    {
-                        var host = GetHostByIp(ip);
-                        hosts.Add(host);
-                       // Console.WriteLine($"{host.IpAddress.ToString().PadRight(17)}{host.MacAddress.PadRight(20)}{host.HostName}");
-                    }
-                });
-                thread.Start();
-                threads.Add(thread);
-            }
-
-            foreach (Thread thread in threads)
-                thread.Join();
-
-            return hosts;
         }
 
         public HostInfo GetHostByIp(IPAddress ipAddress)
@@ -158,6 +120,35 @@ namespace NetScan
             throw new Exception(string.Format("Can't find subnetmask for IP address '{0}'", localHost.IpAddress));
         }
 
+        private List<HostInfo> ArpPing(IPAddressCollection ipRange)
+        {
+            var hosts = new List<HostInfo>();
+
+            List<Thread> threads = new List<Thread>();
+
+            foreach (IPAddress ip in ipRange)
+            {
+                Thread thread = new Thread(() =>
+                {
+                    var isValidIp = ArpHelper.SendArpRequest(IPAddress.Parse(ip.ToString()));
+
+                    if (isValidIp)
+                    {
+                        var host = GetHostByIp(ip);
+                        hosts.Add(host);
+                        // Console.WriteLine($"{host.IpAddress.ToString().PadRight(17)}{host.MacAddress.PadRight(20)}{host.HostName}");
+                    }
+                });
+                thread.Start();
+                threads.Add(thread);
+            }
+
+            foreach (Thread thread in threads)
+                thread.Join();
+
+            return hosts;
+        }
+
         private IPAddress GetLocalIpAddress()
         {
             IPAddress localIp;
@@ -243,6 +234,7 @@ namespace NetScan
 
             return mip;
         }
+
         private struct MacIpPair
         {
             public string MacAddress;
