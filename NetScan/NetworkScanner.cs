@@ -11,6 +11,8 @@ using System.Text.RegularExpressions;
 using System.Net.Mail;
 using IPAddressTools;
 using System.Runtime.InteropServices;
+using System.Diagnostics;
+using static System.Formats.Asn1.AsnWriter;
 
 namespace NetScan
 {
@@ -38,88 +40,113 @@ namespace NetScan
 
             var ipRange = rangeFinder.GetIPRange(startIp, endIp);
 
-            var validIps = new List<string>();
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
 
+            //hosts = ArpPingSingleThread(ipRange);
+
+            hosts = ArpPingMultiThread(ipRange);
+
+            //hosts = ArpPingTaskFactory(ipRange);
+
+            //hosts = ArpPingParallel(ipRange);
+
+            sw.Stop();
+            Console.WriteLine();
+            Console.WriteLine("Time elapsed: {0}", sw.Elapsed);
+
+            this.NetworkInfo.Hosts = hosts;
+            return hosts;
+        }
+
+        private List<HostInfo> ArpPingMultiThread(IEnumerable<string> ipRange)
+        {
+            var hosts = new List<HostInfo>();
+
+            List<Thread> threads = new List<Thread>();
+
+            foreach (string ip in ipRange)
+            {
+                Thread thread = new Thread(() =>
+                {
+                    var isValidIp = ArpHelper.SendArpRequest(IPAddress.Parse(ip));
+
+                    if (isValidIp)
+                    {
+                        var host = GetHostByIp(ip);
+                        hosts.Add(host);
+                        Console.WriteLine($"{host.IpAddress.PadRight(17)}{host.MacAddress.PadRight(20)}{host.HostName}");
+                    }
+                });
+                thread.Start();
+                threads.Add(thread);
+            }
+
+            foreach (Thread thread in threads)
+                thread.Join();
+
+            return hosts;
+        }
+
+        private List<HostInfo> ArpPingTaskFactory(IEnumerable<string> ipRange)
+        {
             var tasks = new List<Task>();
+            var hosts = new List<HostInfo>();
 
             foreach (string ip in ipRange)
             {
                 tasks.Add(Task.Factory.StartNew(() =>
                 {
-                    Console.WriteLine($"Pinging {ip}");
                     var isValidIp = ArpHelper.SendArpRequest(IPAddress.Parse(ip));
 
                     if (isValidIp)
                     {
-                        validIps.Add(ip);
-                        Console.WriteLine($"We got one!");
-
+                        var host = GetHostByIp(ip);
+                        hosts.Add(host);
+                        Console.WriteLine($"{host.IpAddress.PadRight(17)}{host.MacAddress.PadRight(20)}{host.HostName}");
                     }
                 }));
             }
             Task.WaitAll(tasks.ToArray());
 
-            Parallel.ForEach(validIps, ip =>
+            return hosts;
+        }
+
+        private List<HostInfo> ArpPingParallel(IEnumerable<string> ipRange)
+        {
+            var hosts = new List<HostInfo>();
+
+            Parallel.ForEach(ipRange, ip =>
             {
-                var host = GetHostByIp(ip);
-                Console.WriteLine($"{host.IpAddress.PadRight(17)}{host.MacAddress.PadRight(20)}{host.HostName}");
-                hosts.Add(host);
+                var isValidIp = ArpHelper.SendArpRequest(IPAddress.Parse(ip));
+
+                if (isValidIp)
+                {
+                    var host = GetHostByIp(ip);
+                    hosts.Add(host);
+                    Console.WriteLine($"{host.IpAddress.PadRight(17)}{host.MacAddress.PadRight(20)}{host.HostName}");
+                }
             });
 
+            return hosts;
+        }
 
-            //foreach (string ip in ipRange)
-            //{
-            //    Thread thread = new Thread(() =>
-            //    {
-            //        var isValidIp = ArpHelper.SendArpRequest(IPAddress.Parse(ip));
+        private List<HostInfo> ArpPingSingleThread(IEnumerable<string> ipRange)
+        {
+            var hosts = new List<HostInfo>();
 
-            //        if (isValidIp)
-            //        { 
-            //            var host = GetHostByIp(ip);
+            foreach (var ip in ipRange)
+            {
+                var isValidIp = ArpHelper.SendArpRequest(IPAddress.Parse(ip));
 
-            //            Console.WriteLine($"{host.IpAddress.PadRight(17)}{host.MacAddress.PadRight(20)}{host.HostName}");
-            //            hosts.Add(host);
-            //        }
-            //    });
-            //    thread.Start();
+                if (isValidIp)
+                {
+                    var host = GetHostByIp(ip);
+                    hosts.Add(host);
+                    Console.WriteLine($"{host.IpAddress.PadRight(17)}{host.MacAddress.PadRight(20)}{host.HostName}");
+                }
+            }
 
-            //}
-
-            //var options = new ParallelOptions
-            //{
-            //    MaxDegreeOfParallelism = 150
-            //};
-
-            //Parallel.ForEach(ipRange, options, ip =>
-            //{
-            //    Console.WriteLine($"Pinging {ip}");
-            //    var isValidIp = ArpHelper.SendArpRequest(IPAddress.Parse(ip));
-
-            //    if (isValidIp)
-            //    {
-            //        var host = GetHostByIp(ip);
-
-            //        Console.WriteLine($"{host.IpAddress.PadRight(17)}{host.MacAddress.PadRight(20)}{host.HostName}");
-            //        hosts.Add(host);
-            //    }
-            //});
-
-
-            //foreach (var ip in ipRange)
-            //{
-            //    Console.WriteLine($"ARPing {ip}");
-            //    var isValidIp = ArpHelper.SendArpRequest(IPAddress.Parse(ip));
-
-            //    if (isValidIp)
-            //    {
-            //        Console.WriteLine($"Response from {ip}");
-
-            //        var host = GetHostByIp(ip);
-            //        hosts.Add(host);
-            //    }
-            //}
-
-            this.NetworkInfo.Hosts = hosts;
             return hosts;
         }
 

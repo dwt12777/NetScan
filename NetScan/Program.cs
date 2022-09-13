@@ -11,23 +11,9 @@ networkScanner.GetAllHosts();
 
 WriteHostsToScreen(networkScanner.NetworkInfo.Hosts);
 
-//if (nmap.IsValidNmapClient)
-//{
-//    Console.WriteLine($"Scanning network with Nmap {nmap.NmapVersion}...");
-//    Console.WriteLine();
-
-//    var network = new NmapScanner(nmap);
-
-//    WriteHostsToScreen(network.Hosts);
-
-//    Console.WriteLine();
-//    Console.WriteLine($"Total Hosts Online: {network.Hosts.Count}");
-//    Console.WriteLine();
-//}
-//else
-//{
-//    Console.WriteLine(@"Nmap must be installed for this program to work correctly. Go to https://nmap.org/ to download and install it.");
-//}
+Console.WriteLine();
+Console.WriteLine($"Total Hosts Online: {networkScanner.NetworkInfo.Hosts.Count}");
+Console.WriteLine();
 
 string GetWelcomeMessage()
 {
