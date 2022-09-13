@@ -7,29 +7,15 @@ namespace NetScan
 {
     public class Nmap
     {
-        public string NmapPath { get; set; }
         public bool IsValidNmapClient { get; }
         public string NmapVersion { get; }
 
-        public Nmap(string nmapPath)
-        {
-            NmapPath = nmapPath;
-            IsValidNmapClient = CheckNmap(nmapPath);
-            NmapVersion = GetNmapVersion(nmapPath);
-        }
+        private const string _nmapPath = @"C:\Program Files (x86)\Nmap\nmap.exe";
 
-        private string? GetNmapVersion(string nmapPath)
+        public Nmap()
         {
-            var versionInfo = FileVersionInfo.GetVersionInfo(nmapPath);
-
-            if (versionInfo.ProductVersion != null)
-            {
-                return versionInfo.FileVersion.ToString();
-            }
-            else
-            {
-                return null;
-            }
+            IsValidNmapClient = CheckNmap(_nmapPath);
+            NmapVersion = GetNmapVersion(_nmapPath);
         }
 
         public nmaprun RunNmap(string nmapSearch)
@@ -38,7 +24,7 @@ namespace NetScan
 
             var tempFile = Path.Combine(Path.GetTempPath(), Path.ChangeExtension("nmap-" + Guid.NewGuid().ToString(), ".xml"));
 
-            using (StreamReader nmapStream = ExecuteCommandLine(NmapPath, $"-sn {nmapSearch} -oX {tempFile}"))
+            using (StreamReader nmapStream = ExecuteCommandLine(_nmapPath, $"-sn {nmapSearch} -oX {tempFile}"))
             {
                 nmapStream.ReadToEnd();
             }
@@ -82,6 +68,20 @@ namespace NetScan
             // To Do: test if it's actually nmap
             return File.Exists(nmapPath);
 
+        }
+
+        private string? GetNmapVersion(string nmapPath)
+        {
+            var versionInfo = FileVersionInfo.GetVersionInfo(nmapPath);
+
+            if (versionInfo.ProductVersion != null)
+            {
+                return versionInfo.FileVersion.ToString();
+            }
+            else
+            {
+                return null;
+            }
         }
     }
 }
