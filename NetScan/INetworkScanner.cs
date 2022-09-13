@@ -1,4 +1,5 @@
 ﻿using NetScan.Models;
+using System.Net;
 
 namespace NetScan
 {
@@ -8,7 +9,7 @@ namespace NetScan
 
         public List<HostInfo> GetAllHosts();
 
-        public HostInfo GetHostByIp(string ipAddress);
+        public HostInfo GetHostByIp(IPAddress ipAddress);
 
         public HostInfo GetHostByName(string hostName);
 
@@ -16,7 +17,7 @@ namespace NetScan
 
         public HostInfo GetLocalHost();
 
-        public string GetLocalSubnetMask();
+        public IPAddress GetLocalSubnetMask();
 
         public HostInfo GetLocalGateway();
     }

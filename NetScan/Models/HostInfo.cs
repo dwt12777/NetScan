@@ -1,18 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Net;
 
 namespace NetScan.Models
 {
     public class HostInfo
     {
         public string MacAddress { get; set; }
-        public string IpAddress { get; set; }
+        public IPAddress IpAddress { get; set; }
         public string HostName { get; set; }
-        public string MacVendor { get; set; }
 
-        public string IpAddressLabel => string.Join(".", IpAddress.Split('.').Select(part => part.PadLeft(3, '0')));
+        public string IpAddressLabel => string.Join(".", IpAddress.ToString().Split('.').Select(part => part.PadLeft(3, '0')));
     }
 }

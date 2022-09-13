@@ -4,16 +4,19 @@ using System.Reflection;
 
 Console.WriteLine();
 Console.WriteLine(GetWelcomeMessage());
+Console.WriteLine();
 
 var networkScanner = new NetworkScanner();
 
+Console.Write($"Scan in progress... ");
 networkScanner.GetAllHosts();
+Console.WriteLine();
+
+Console.WriteLine();
+Console.WriteLine($"Total Hosts Found: {networkScanner.NetworkInfo.Hosts.Count}");
+Console.WriteLine();
 
 WriteHostsToScreen(networkScanner.NetworkInfo.Hosts);
-
-Console.WriteLine();
-Console.WriteLine($"Total Hosts Online: {networkScanner.NetworkInfo.Hosts.Count}");
-Console.WriteLine();
 
 string GetWelcomeMessage()
 {
@@ -24,7 +27,14 @@ string GetWelcomeMessage()
 
 void WriteHostsToScreen(List<HostInfo> hostInfos)
 {
-    var maxIpLength = hostInfos.Max(h => h.IpAddress.Length);
+    if (hostInfos == null || hostInfos.Count == 0)
+    {
+        return;
+    }
+
+    hostInfos = hostInfos.OrderBy(h => h.IpAddressLabel).ToList();
+
+    var maxIpLength = hostInfos.Max(h => h.IpAddress.ToString().Length);
     var maxHostLength = hostInfos.Max(h => h.HostName.Length);
     var maxMacLength = hostInfos.Max(h => h.MacAddress.Length);
 
@@ -35,6 +45,6 @@ void WriteHostsToScreen(List<HostInfo> hostInfos)
 
     foreach (var hi in hostInfos)
     {
-        Console.WriteLine($"{hi.IpAddress.PadRight(maxIpLength + 2)}{hi.HostName.PadRight(maxHostLength + 2)}{hi.MacAddress.PadRight(maxMacLength + 2)}");
+        Console.WriteLine($"{hi.IpAddress.ToString().PadRight(maxIpLength + 2)}{hi.HostName.PadRight(maxHostLength + 2)}{hi.MacAddress.PadRight(maxMacLength + 2)}");
     }
 }

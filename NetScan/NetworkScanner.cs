@@ -9,16 +9,17 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Text.RegularExpressions;
 using System.Net.Mail;
-using IPAddressTools;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
 using static System.Formats.Asn1.AsnWriter;
+using IPAddressCollection = System.Net.IPAddressCollection;
 
 namespace NetScan
 {
     public class NetworkScanner : INetworkScanner
     {
         public NetworkInfo NetworkInfo { get; set; }
+        private IPNetwork _ipNetwork;
 
         public NetworkScanner()
         {
@@ -27,55 +28,36 @@ namespace NetScan
                 Gateway = GetLocalGateway(),
                 SubnetMask = GetLocalSubnetMask()
             };
+
+            _ipNetwork = IPNetwork.Parse(GetLocalIpAddress().ToString(), this.NetworkInfo.SubnetMask.ToString());
         }
 
         public List<HostInfo> GetAllHosts()
         {
-            var hosts = new List<HostInfo>();
+            var ipRange = _ipNetwork.ListIPAddress(FilterEnum.Usable);
 
-            IPAddress startIp = IPAddress.Parse("192.168.22.1");
-            IPAddress endIp = IPAddress.Parse("192.168.22.254");
-
-            var rangeFinder = new RangeFinder();
-
-            var ipRange = rangeFinder.GetIPRange(startIp, endIp);
-
-            Stopwatch sw = new Stopwatch();
-            sw.Start();
-
-            //hosts = ArpPingSingleThread(ipRange);
-
-            hosts = ArpPingMultiThread(ipRange);
-
-            //hosts = ArpPingTaskFactory(ipRange);
-
-            //hosts = ArpPingParallel(ipRange);
-
-            sw.Stop();
-            Console.WriteLine();
-            Console.WriteLine("Time elapsed: {0}", sw.Elapsed);
-
-            this.NetworkInfo.Hosts = hosts;
-            return hosts;
+            this.NetworkInfo.Hosts = ArpPing(ipRange);
+            
+            return this.NetworkInfo.Hosts;
         }
 
-        private List<HostInfo> ArpPingMultiThread(IEnumerable<string> ipRange)
+        private List<HostInfo> ArpPing(IPAddressCollection ipRange)
         {
             var hosts = new List<HostInfo>();
 
             List<Thread> threads = new List<Thread>();
 
-            foreach (string ip in ipRange)
+            foreach (IPAddress ip in ipRange)
             {
                 Thread thread = new Thread(() =>
                 {
-                    var isValidIp = ArpHelper.SendArpRequest(IPAddress.Parse(ip));
+                    var isValidIp = ArpHelper.SendArpRequest(IPAddress.Parse(ip.ToString()));
 
                     if (isValidIp)
                     {
                         var host = GetHostByIp(ip);
                         hosts.Add(host);
-                        Console.WriteLine($"{host.IpAddress.PadRight(17)}{host.MacAddress.PadRight(20)}{host.HostName}");
+                       // Console.WriteLine($"{host.IpAddress.ToString().PadRight(17)}{host.MacAddress.PadRight(20)}{host.HostName}");
                     }
                 });
                 thread.Start();
@@ -88,69 +70,7 @@ namespace NetScan
             return hosts;
         }
 
-        private List<HostInfo> ArpPingTaskFactory(IEnumerable<string> ipRange)
-        {
-            var tasks = new List<Task>();
-            var hosts = new List<HostInfo>();
-
-            foreach (string ip in ipRange)
-            {
-                tasks.Add(Task.Factory.StartNew(() =>
-                {
-                    var isValidIp = ArpHelper.SendArpRequest(IPAddress.Parse(ip));
-
-                    if (isValidIp)
-                    {
-                        var host = GetHostByIp(ip);
-                        hosts.Add(host);
-                        Console.WriteLine($"{host.IpAddress.PadRight(17)}{host.MacAddress.PadRight(20)}{host.HostName}");
-                    }
-                }));
-            }
-            Task.WaitAll(tasks.ToArray());
-
-            return hosts;
-        }
-
-        private List<HostInfo> ArpPingParallel(IEnumerable<string> ipRange)
-        {
-            var hosts = new List<HostInfo>();
-
-            Parallel.ForEach(ipRange, ip =>
-            {
-                var isValidIp = ArpHelper.SendArpRequest(IPAddress.Parse(ip));
-
-                if (isValidIp)
-                {
-                    var host = GetHostByIp(ip);
-                    hosts.Add(host);
-                    Console.WriteLine($"{host.IpAddress.PadRight(17)}{host.MacAddress.PadRight(20)}{host.HostName}");
-                }
-            });
-
-            return hosts;
-        }
-
-        private List<HostInfo> ArpPingSingleThread(IEnumerable<string> ipRange)
-        {
-            var hosts = new List<HostInfo>();
-
-            foreach (var ip in ipRange)
-            {
-                var isValidIp = ArpHelper.SendArpRequest(IPAddress.Parse(ip));
-
-                if (isValidIp)
-                {
-                    var host = GetHostByIp(ip);
-                    hosts.Add(host);
-                    Console.WriteLine($"{host.IpAddress.PadRight(17)}{host.MacAddress.PadRight(20)}{host.HostName}");
-                }
-            }
-
-            return hosts;
-        }
-
-        public HostInfo GetHostByIp(string ipAddress)
+        public HostInfo GetHostByIp(IPAddress ipAddress)
         {
             var host = new HostInfo()
             {
@@ -180,7 +100,7 @@ namespace NetScan
         {
             var ipAddress = Dns.GetHostAddresses(hostName)[0].ToString();
 
-            var host = GetHostByIp(ipAddress);
+            var host = GetHostByIp(IPAddress.Parse(ipAddress));
 
             return host;
         }
@@ -195,57 +115,15 @@ namespace NetScan
                 {
                     foreach (GatewayIPAddressInformation d in f.GetIPProperties().GatewayAddresses)
                     {
-                        gatewayHost.IpAddress = d.Address.ToString();
-                        gatewayHost.MacAddress = GetMacByIp(d.Address.ToString());
-                        gatewayHost.HostName = GetHostNameByIp(d.Address.ToString());
+                        gatewayHost.IpAddress = d.Address;
+                        gatewayHost.MacAddress = GetMacByIp(d.Address);
+                        gatewayHost.HostName = GetHostNameByIp(d.Address);
                         break;
                     }
                 }
             }
 
             return gatewayHost;
-        }
-
-        public HostInfo GetLocalGateway_backup()
-        {
-            const int timeout = 10000;
-            const int maxTTL = 30;
-            const int bufferSize = 32;
-
-            var hostname = "reardentools.com";
-
-            var gatewayIp = string.Empty;
-
-            byte[] buffer = new byte[bufferSize];
-            new Random().NextBytes(buffer);
-
-            using (var pinger = new Ping())
-            {
-                for (int ttl = 1; ttl <= maxTTL; ttl++)
-                {
-                    PingOptions options = new PingOptions(ttl, true);
-                    PingReply reply = pinger.Send(hostname, timeout, buffer, options);
-
-                    // we've found a route at this ttl
-                    if (reply.Status == IPStatus.Success || reply.Status == IPStatus.TtlExpired)
-                    {
-                        gatewayIp = reply.Address.ToString();
-                        break;
-                    }
-
-                    // if we reach a status other than expired or timed out, we're done searching or there has been an error
-                    if (reply.Status != IPStatus.TtlExpired && reply.Status != IPStatus.TimedOut)
-                        break;
-                }
-            }
-            var hostGateway = new HostInfo()
-            {
-                IpAddress = gatewayIp,
-                MacAddress = GetMacByIp(gatewayIp),
-                HostName = GetHostNameByIp(gatewayIp)
-            };
-
-            return hostGateway;
         }
 
         public HostInfo GetLocalHost()
@@ -260,7 +138,7 @@ namespace NetScan
             return localHost;
         }
 
-        public string GetLocalSubnetMask()
+        public IPAddress GetLocalSubnetMask()
         {
             var localHost = GetLocalHost();
 
@@ -270,9 +148,9 @@ namespace NetScan
                 {
                     if (unicastIPAddressInformation.Address.AddressFamily == AddressFamily.InterNetwork)
                     {
-                        if (localHost.IpAddress.Equals(unicastIPAddressInformation.Address.ToString()))
+                        if (localHost.IpAddress.Equals(unicastIPAddressInformation.Address))
                         {
-                            return unicastIPAddressInformation.IPv4Mask.ToString();
+                            return unicastIPAddressInformation.IPv4Mask;
                         }
                     }
                 }
@@ -280,7 +158,7 @@ namespace NetScan
             throw new Exception(string.Format("Can't find subnetmask for IP address '{0}'", localHost.IpAddress));
         }
 
-        private string GetLocalIpAddress()
+        private IPAddress GetLocalIpAddress()
         {
             IPAddress localIp;
             using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0))
@@ -290,7 +168,7 @@ namespace NetScan
                 localIp = endPoint.Address;
             }
 
-            return localIp.ToString();
+            return localIp;
         }
 
         private string GetLocalMacAddress()
@@ -309,15 +187,15 @@ namespace NetScan
             return localMac;
         }
 
-        private string GetMacByIp(string ipAddress)
+        private string GetMacByIp(IPAddress ipAddress)
         {
             var macIpPairs = GetAllMacAddressesAndIppairs();
-            int index = macIpPairs.FindIndex(x => x.IpAddress == ipAddress);
+            int index = macIpPairs.FindIndex(x => x.IpAddress == ipAddress.ToString());
             if (index >= 0)
             {
                 return macIpPairs[index].MacAddress.ToUpper();
             }
-            else if (ipAddress == GetLocalIpAddress())
+            else if (ipAddress.ToString() == GetLocalIpAddress().ToString())
             {
                 return GetLocalMacAddress();
             }
@@ -327,13 +205,13 @@ namespace NetScan
             }
         }
 
-        private string GetIpByMac(string macAddress)
+        private IPAddress GetIpByMac(string macAddress)
         {
             var macIpPairs = GetAllMacAddressesAndIppairs();
             int index = macIpPairs.FindIndex(x => x.MacAddress == macAddress);
             if (index >= 0)
             {
-                return macIpPairs[index].IpAddress.ToUpper();
+                return IPAddress.Parse(macIpPairs[index].IpAddress.ToUpper());
             }
             else
             {
@@ -371,7 +249,7 @@ namespace NetScan
             public string IpAddress;
         }
 
-        private string GetHostNameByIp(string ipAddress)
+        private string GetHostNameByIp(IPAddress ipAddress)
         {
             try
             {
@@ -392,10 +270,5 @@ namespace NetScan
 
             return string.Empty;
         }
-
-
-
-
-
     }
 }
