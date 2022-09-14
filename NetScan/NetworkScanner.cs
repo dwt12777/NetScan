@@ -10,6 +10,8 @@ namespace NetScan
     public class NetworkScanner : INetworkScanner
     {
         public NetworkInfo NetworkInfo { get; set; }
+        public string Network { get; set; }
+
         private IPNetwork _ipNetwork;
 
         public NetworkScanner()
@@ -21,6 +23,7 @@ namespace NetScan
             };
 
             _ipNetwork = IPNetwork.Parse(GetLocalIpAddress().ToString(), this.NetworkInfo.SubnetMask.ToString());
+            Network = _ipNetwork.Value;
         }
 
         public List<HostInfo> GetAllHosts()
@@ -28,7 +31,7 @@ namespace NetScan
             var ipRange = _ipNetwork.ListIPAddress(FilterEnum.Usable);
 
             this.NetworkInfo.Hosts = ArpPing(ipRange);
-            
+
             return this.NetworkInfo.Hosts;
         }
 
@@ -143,8 +146,13 @@ namespace NetScan
                 threads.Add(thread);
             }
 
-            foreach (Thread thread in threads)
-                thread.Join();
+            for (int i = 0; i < threads.Count; i++)
+            {
+                threads[i].Join();
+                double progress = ((double)i + 1) / (double)threads.Count;
+                Console.Write("\rScan progress   : {0:P0}", progress);
+            }
+            Console.WriteLine();
 
             return hosts;
         }

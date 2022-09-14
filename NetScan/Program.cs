@@ -3,39 +3,42 @@ using NetScan.Models;
 using System.Reflection;
 using System.Text;
 
-Console.WriteLine(GetWelcomeMessage());
+Console.WriteLine();
+
+string version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
+WriteTwoColumns("NetScan Version", version);
+
 
 var networkScanner = new NetworkScanner();
 
-Console.Write($"Scan in progress... ");
+WriteTwoColumns("Network", networkScanner.Network);
+WriteTwoColumns("Subnet", networkScanner.NetworkInfo.SubnetMask.ToString());
+WriteTwoColumns("Gateway", networkScanner.NetworkInfo.Gateway.IpAddress.ToString());
+
 networkScanner.GetAllHosts();
-Console.WriteLine();
 
-Console.WriteLine();
-Console.WriteLine($"Total Hosts Found: {networkScanner.NetworkInfo.Hosts.Count}");
-Console.WriteLine();
+WriteTwoColumns("Hosts Found", networkScanner.NetworkInfo.Hosts.Count.ToString());
 
-Console.WriteLine(WriteHostsToScreen(networkScanner.NetworkInfo.Hosts));
+WriteHostsToScreen(networkScanner.NetworkInfo.Hosts);
 
-string GetWelcomeMessage()
+
+void WriteTwoColumns(string col1, string col2)
 {
-    var sb = new StringBuilder();
+    var sep = " : ";
+    var col1Width = 15;
 
-    string version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
-        
-    sb.AppendLine();
-    sb.AppendLine($"NetScan {version}");
-    return sb.ToString();
+    Console.WriteLine(col1.PadRight(col1Width) + sep + col2);
 }
 
-string WriteHostsToScreen(List<HostInfo> hostInfos)
+void WriteHostsToScreen(List<HostInfo> hostInfos)
 {
     var sb = new StringBuilder();
+
+    sb.AppendLine();
 
     if (hostInfos == null || hostInfos.Count == 0)
     {
-        sb.AppendLine("No hosts found");
-        return sb.ToString();
+        return;
     }
 
     hostInfos = hostInfos.OrderBy(h => h.IpAddressLabel).ToList();
@@ -54,5 +57,5 @@ string WriteHostsToScreen(List<HostInfo> hostInfos)
         sb.AppendLine($"{hi.IpAddress.ToString().PadRight(maxIpLength + 2)}{hi.HostName.PadRight(maxHostLength + 2)}{hi.MacAddress.PadRight(maxMacLength + 2)}");
     }
 
-    return sb.ToString();
+    Console.Write(sb.ToString());
 }
