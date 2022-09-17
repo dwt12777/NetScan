@@ -6,6 +6,7 @@ namespace NetScan.Models
     {
         public HostInfo Gateway { get; set; }
         public IPAddress SubnetMask { get; set; }
+        public IPAddress WanIp { get; set; }
 
         public List<HostInfo> Hosts { get; set; }
     }

@@ -19,7 +19,8 @@ namespace NetScan
             NetworkInfo = new NetworkInfo()
             {
                 Gateway = GetLocalGateway(),
-                SubnetMask = GetLocalSubnetMask()
+                SubnetMask = GetLocalSubnetMask(),
+                WanIp = GetWanIp()
             };
 
             _ipNetwork = IPNetwork.Parse(GetLocalIpAddress().ToString(), this.NetworkInfo.SubnetMask.ToString());
@@ -269,6 +270,12 @@ namespace NetScan
             }
 
             return string.Empty;
+        }
+
+        private IPAddress GetWanIp()
+        {
+                string externalIpString = new WebClient().DownloadString("http://icanhazip.com").Replace("\\r\\n", "").Replace("\\n", "").Trim();
+                return IPAddress.Parse(externalIpString);
         }
     }
 }

@@ -14,6 +14,8 @@ var networkScanner = new NetworkScanner();
 WriteTwoColumns("Network", networkScanner.Network);
 WriteTwoColumns("Subnet", networkScanner.NetworkInfo.SubnetMask.ToString());
 WriteTwoColumns("Gateway", networkScanner.NetworkInfo.Gateway.IpAddress.ToString());
+WriteTwoColumns("WAN IP", networkScanner.NetworkInfo.WanIp.ToString());
+
 
 networkScanner.GetAllHosts();
 
