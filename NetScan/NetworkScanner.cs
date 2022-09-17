@@ -1,4 +1,5 @@
 ﻿using NetScan.Models;
+using System.Diagnostics;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
@@ -9,10 +10,32 @@ namespace NetScan
 {
     public class NetworkScanner : INetworkScanner
     {
+
+        public event EventHandler IpScanCompleted;
+
+        public event EventHandler<IpScanProgressUpdatedEventArgs> IpScanProgressUpdated;
+
+        protected virtual void OnIpScanProgressUpdated(IpScanProgressUpdatedEventArgs e)
+        {
+            EventHandler<IpScanProgressUpdatedEventArgs> handler = IpScanProgressUpdated;
+            handler?.Invoke(this, e);
+        }
+
+        public class IpScanProgressUpdatedEventArgs : EventArgs
+        {
+            public double IpCountScanned { get; set; }
+            public double IpCount { get; set; }
+            public double ProgressPercent => IpCountScanned / IpCount;
+        }
+
         public NetworkInfo NetworkInfo { get; set; }
         public string Network { get; set; }
+        public DateTime ScanDate { get; set; }
+        public TimeSpan ScanDuration { get; set; }
 
         private IPNetwork _ipNetwork;
+        private Stopwatch _stopwatch;
+
 
         public NetworkScanner()
         {
@@ -25,6 +48,7 @@ namespace NetScan
 
             _ipNetwork = IPNetwork.Parse(GetLocalIpAddress().ToString(), this.NetworkInfo.SubnetMask.ToString());
             Network = _ipNetwork.Value;
+            _stopwatch = new Stopwatch();
         }
 
         public List<HostInfo> GetAllHosts()
@@ -32,6 +56,14 @@ namespace NetScan
             var ipRange = _ipNetwork.ListIPAddress(FilterEnum.Usable);
 
             this.NetworkInfo.Hosts = ArpPing(ipRange);
+
+            _stopwatch.Stop();
+
+            this.ScanDuration = _stopwatch.Elapsed;
+
+            this.IpScanCompleted?.Invoke(this, EventArgs.Empty);
+
+          
 
             return this.NetworkInfo.Hosts;
         }
@@ -128,6 +160,10 @@ namespace NetScan
         {
             var hosts = new List<HostInfo>();
 
+            this.ScanDate = DateTime.Now;
+
+            _stopwatch.Start();
+
             List<Thread> threads = new List<Thread>();
 
             foreach (IPAddress ip in ipRange)
@@ -140,7 +176,6 @@ namespace NetScan
                     {
                         var host = GetHostByIp(ip);
                         hosts.Add(host);
-                        // Console.WriteLine($"{host.IpAddress.ToString().PadRight(17)}{host.MacAddress.PadRight(20)}{host.HostName}");
                     }
                 });
                 thread.Start();
@@ -150,10 +185,15 @@ namespace NetScan
             for (int i = 0; i < threads.Count; i++)
             {
                 threads[i].Join();
-                double progress = ((double)i + 1) / (double)threads.Count;
-                Console.Write("\rScan progress   : {0:P0}", progress);
+
+                var args = new IpScanProgressUpdatedEventArgs()
+                {
+                    IpCountScanned = ((double)i + 1),
+                    IpCount = (double)threads.Count
+                };
+
+                this.OnIpScanProgressUpdated(args);
             }
-            Console.WriteLine();
 
             return hosts;
         }

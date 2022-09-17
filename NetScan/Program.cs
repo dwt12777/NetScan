@@ -8,8 +8,8 @@ Console.WriteLine();
 string version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
 WriteTwoColumns("NetScan Version", version);
 
-
 var networkScanner = new NetworkScanner();
+networkScanner.IpScanCompleted += NetworkScanner_IpScanCompleted;
 
 WriteTwoColumns("Network", networkScanner.Network);
 WriteTwoColumns("Subnet", networkScanner.NetworkInfo.SubnetMask.ToString());
@@ -19,17 +19,28 @@ WriteTwoColumns("WAN IP", networkScanner.NetworkInfo.WanIp.ToString());
 
 networkScanner.GetAllHosts();
 
-WriteTwoColumns("Hosts Found", networkScanner.NetworkInfo.Hosts.Count.ToString());
+void NetworkScanner_IpScanCompleted(object? sender, EventArgs e)
+{
+    WriteTwoColumns("Scan Date", networkScanner.ScanDate.ToString());
+    WriteTwoColumns("Scan Duration", string.Format("{0}.{1} s", networkScanner.ScanDuration.Seconds, networkScanner.ScanDuration.Milliseconds));
 
-WriteHostsToScreen(networkScanner.NetworkInfo.Hosts);
+    WriteTwoColumns("Hosts Found", networkScanner.NetworkInfo.Hosts.Count.ToString());
+    WriteHostsToScreen(networkScanner.NetworkInfo.Hosts);
+}
 
-
-void WriteTwoColumns(string col1, string col2)
+void WriteTwoColumns(string col1, string col2, bool newLine = true)
 {
     var sep = " : ";
     var col1Width = 15;
 
-    Console.WriteLine(col1.PadRight(col1Width) + sep + col2);
+    if (newLine)
+    {
+        Console.WriteLine(col1.PadRight(col1Width) + sep + col2);
+    }
+    else
+    {
+        Console.Write($"\r{col1.PadRight(col1Width)}{sep}{col2}");
+    }
 }
 
 void WriteHostsToScreen(List<HostInfo> hostInfos)
@@ -61,3 +72,4 @@ void WriteHostsToScreen(List<HostInfo> hostInfos)
 
     Console.Write(sb.ToString());
 }
+
