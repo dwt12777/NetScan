@@ -29,25 +29,27 @@ namespace NetScan
         }
 
         public NetworkInfo NetworkInfo { get; set; }
-        public string Network { get; set; }
         public DateTime ScanDate { get; set; }
         public TimeSpan ScanDuration { get; set; }
 
         private IPNetwork _ipNetwork;
         private Stopwatch _stopwatch;
-
+        private readonly HttpClient _client = new HttpClient();
 
         public NetworkScanner()
         {
+            var subnetMask = GetLocalSubnetMask();
+
+            _ipNetwork = IPNetwork.Parse(GetLocalIpAddress().ToString(), subnetMask.ToString());
+
             NetworkInfo = new NetworkInfo()
             {
                 Gateway = GetLocalGateway(),
-                SubnetMask = GetLocalSubnetMask(),
-                WanIp = GetWanIp()
+                SubnetMask = subnetMask,
+                WanIp = GetWanIp(),
+                Network = _ipNetwork.Value
             };
 
-            _ipNetwork = IPNetwork.Parse(GetLocalIpAddress().ToString(), this.NetworkInfo.SubnetMask.ToString());
-            Network = _ipNetwork.Value;
             _stopwatch = new Stopwatch();
         }
 
@@ -63,7 +65,7 @@ namespace NetScan
 
             this.IpScanCompleted?.Invoke(this, EventArgs.Empty);
 
-          
+            
 
             return this.NetworkInfo.Hosts;
         }
@@ -314,7 +316,13 @@ namespace NetScan
 
         private IPAddress GetWanIp()
         {
-                string externalIpString = new WebClient().DownloadString("http://icanhazip.com").Replace("\\r\\n", "").Replace("\\n", "").Trim();
+            string externalIpString = _client
+                .GetStringAsync("http://icanhazip.com")
+                .Result
+                .Replace("\\r\\n", "")
+                .Replace("\\n", "")
+                .Trim();
+
                 return IPAddress.Parse(externalIpString);
         }
     }

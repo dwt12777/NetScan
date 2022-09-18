@@ -1,37 +1,64 @@
 ﻿using NetScan;
 using NetScan.Models;
-using System.Reflection;
 using System.Text;
 
-Console.WriteLine();
+// Start stopwatch
 
-string version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
-WriteTwoColumns("NetScan Version", version);
 
+
+// Scan local network
 var networkScanner = new NetworkScanner();
+networkScanner.IpScanProgressUpdated += NetworkScanner_IpScanProgressUpdated;
 networkScanner.IpScanCompleted += NetworkScanner_IpScanCompleted;
-
-WriteTwoColumns("Network", networkScanner.Network);
-WriteTwoColumns("Subnet", networkScanner.NetworkInfo.SubnetMask.ToString());
-WriteTwoColumns("Gateway", networkScanner.NetworkInfo.Gateway.IpAddress.ToString());
-WriteTwoColumns("WAN IP", networkScanner.NetworkInfo.WanIp.ToString());
-
-
 networkScanner.GetAllHosts();
+
+// Update MAC cache
+MacVendorLookup.RefrechMacProgressUpdated += MacVendorLookup_RefrechMacProgressUpdated;
+MacVendorLookup.RefreshMacVendorsComplete += MacVendorLookup_RefreshMacVendorsComplete;
+networkScanner.NetworkInfo.Hosts = MacVendorLookup.RefreshMacVendors(networkScanner.NetworkInfo.Hosts);
+
+// Print Network Summary
+PrintNetworkSummary(networkScanner);
+
+// Print Host List
+PrintHosts(networkScanner.NetworkInfo.Hosts);
+
+// Network Scanner Event Handlers
+void NetworkScanner_IpScanProgressUpdated(object? sender, NetworkScanner.IpScanProgressUpdatedEventArgs e)
+{
+    PrintTwoColumns("Scan Local Area Network", e.ProgressPercent.ToString("P0"), false);
+}
 
 void NetworkScanner_IpScanCompleted(object? sender, EventArgs e)
 {
-    WriteTwoColumns("Scan Date", networkScanner.ScanDate.ToString());
-    WriteTwoColumns("Scan Duration", string.Format("{0}.{1} s", networkScanner.ScanDuration.Seconds, networkScanner.ScanDuration.Milliseconds));
-
-    WriteTwoColumns("Hosts Found", networkScanner.NetworkInfo.Hosts.Count.ToString());
-    WriteHostsToScreen(networkScanner.NetworkInfo.Hosts);
+    Console.WriteLine(string.Format(" ({0}.{1:1}s)", networkScanner.ScanDuration.Seconds, networkScanner.ScanDuration.Milliseconds));
 }
 
-void WriteTwoColumns(string col1, string col2, bool newLine = true)
+// MAC Vendor Lookup event handlers
+void MacVendorLookup_RefreshMacVendorsComplete(object? sender, EventArgs e)
+{
+    Console.WriteLine(string.Format(" ({0}.{1:1}s)", MacVendorLookup.ScanDuration.Seconds, MacVendorLookup.ScanDuration.Milliseconds));
+}
+
+void MacVendorLookup_RefrechMacProgressUpdated(object? sender, MacVendorLookup.RefrechMacProgressUpdatedProgressUpdatedEventArgs e)
+{
+    PrintTwoColumns("Refresh MAC Vendors", e.ProgressPercent.ToString("P0"), false);
+}
+
+void PrintNetworkSummary(NetworkScanner networkScanner)
+{
+    PrintTwoColumns("WAN IP", networkScanner.NetworkInfo.WanIp.ToString());
+    PrintTwoColumns("Gateway", networkScanner.NetworkInfo.Gateway.IpAddress.ToString());
+    PrintTwoColumns("Subnet Mask", networkScanner.NetworkInfo.SubnetMask.ToString());
+    PrintTwoColumns("Network", networkScanner.NetworkInfo.Network);
+    PrintTwoColumns("Scan Date", networkScanner.ScanDate.ToString());
+    PrintTwoColumns("Hosts Found", networkScanner.NetworkInfo.Hosts.Count.ToString());
+}
+
+void PrintTwoColumns(string col1, string col2, bool newLine = true)
 {
     var sep = " : ";
-    var col1Width = 15;
+    var col1Width = 23;
 
     if (newLine)
     {
@@ -43,7 +70,7 @@ void WriteTwoColumns(string col1, string col2, bool newLine = true)
     }
 }
 
-void WriteHostsToScreen(List<HostInfo> hostInfos)
+void PrintHosts(List<HostInfo> hostInfos)
 {
     var sb = new StringBuilder();
 
@@ -59,15 +86,31 @@ void WriteHostsToScreen(List<HostInfo> hostInfos)
     var maxIpLength = hostInfos.Max(h => h.IpAddress.ToString().Length);
     var maxHostLength = hostInfos.Max(h => h.HostName.Length);
     var maxMacLength = hostInfos.Max(h => h.MacAddress.Length);
+    var maxVendorLength = hostInfos.Max(h => h.MacVendor.Length);
 
     var colSpace = 2;
 
-    sb.AppendLine("IP Address".PadRight(maxIpLength + colSpace) + "Host Name".PadRight(maxHostLength + colSpace) + "MAC Address".PadRight(maxMacLength + colSpace));
-    sb.AppendLine(new String('-', maxIpLength).PadRight(maxIpLength + colSpace) + new String('-', maxHostLength).PadRight(maxHostLength + colSpace) + new String('-', maxMacLength).PadRight(maxMacLength + colSpace));
+    // Column Headers
+    sb.Append("IP Address".PadRight(maxIpLength + colSpace));
+    sb.Append("Host Name".PadRight(maxHostLength + colSpace));
+    sb.Append("MAC Address".PadRight(maxMacLength + colSpace));
+    sb.Append("MAC Vendor".PadRight(maxVendorLength + colSpace));
+    sb.AppendLine();
+
+    // Column Header Underlines
+    sb.Append(new String('-', maxIpLength).PadRight(maxIpLength + colSpace));
+    sb.Append(new String('-', maxHostLength).PadRight(maxHostLength + colSpace));
+    sb.Append(new String('-', maxMacLength).PadRight(maxMacLength + colSpace));
+    sb.Append(new String('-', maxVendorLength).PadRight(maxMacLength + colSpace));
+    sb.AppendLine();
 
     foreach (var hi in hostInfos)
     {
-        sb.AppendLine($"{hi.IpAddress.ToString().PadRight(maxIpLength + 2)}{hi.HostName.PadRight(maxHostLength + 2)}{hi.MacAddress.PadRight(maxMacLength + 2)}");
+        sb.Append(hi.IpAddress.ToString().PadRight(maxIpLength + 2));
+        sb.Append(hi.HostName.PadRight(maxHostLength + 2));
+        sb.Append(hi.MacAddress.PadRight(maxMacLength + 2));
+        sb.Append(hi.MacVendor.PadRight(maxMacLength + 2));
+        sb.AppendLine();
     }
 
     Console.Write(sb.ToString());
