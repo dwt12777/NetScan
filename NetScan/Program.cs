@@ -2,12 +2,9 @@
 using NetScan.Models;
 using System.Text;
 
-// Start stopwatch
-
-
-
 // Scan local network
 var networkScanner = new NetworkScanner();
+networkScanner.IpScanStarted += NetworkScanner_IpScanStarted;
 networkScanner.IpScanProgressUpdated += NetworkScanner_IpScanProgressUpdated;
 networkScanner.IpScanCompleted += NetworkScanner_IpScanCompleted;
 networkScanner.GetAllHosts();
@@ -24,41 +21,48 @@ PrintNetworkSummary(networkScanner);
 PrintHosts(networkScanner.NetworkInfo.Hosts);
 
 // Network Scanner Event Handlers
+void NetworkScanner_IpScanStarted(object? sender, EventArgs e)
+{
+    Console.Write("Scanning local area network... ");
+}
+
 void NetworkScanner_IpScanProgressUpdated(object? sender, NetworkScanner.IpScanProgressUpdatedEventArgs e)
 {
-    PrintTwoColumns("Scan Local Area Network", e.ProgressPercent.ToString("P0"), false);
+    Console.Write(String.Format("\rScanning local area network... {0}", e.ProgressPercent.ToString("P0")));
 }
 
 void NetworkScanner_IpScanCompleted(object? sender, EventArgs e)
 {
-    Console.WriteLine(string.Format(" ({0}.{1:1}s)", networkScanner.ScanDuration.Seconds, networkScanner.ScanDuration.Milliseconds));
+    Console.WriteLine(string.Format(" ({0:.00}s)", networkScanner.ScanDuration.TotalSeconds));
 }
 
 // MAC Vendor Lookup event handlers
-void MacVendorLookup_RefreshMacVendorsComplete(object? sender, EventArgs e)
+void MacVendorLookup_RefreshMacVendorsComplete(object? sender, MacVendorLookup.RefreshMacVendorsCompleteEventArgs e)
 {
-    Console.WriteLine(string.Format(" ({0}.{1:1}s)", MacVendorLookup.ScanDuration.Seconds, MacVendorLookup.ScanDuration.Milliseconds));
+    if (e.MacCacheChanged)
+        Console.WriteLine(string.Format(" ({0:.00}s)", MacVendorLookup.ScanDuration.TotalSeconds));
 }
 
 void MacVendorLookup_RefrechMacProgressUpdated(object? sender, MacVendorLookup.RefrechMacProgressUpdatedProgressUpdatedEventArgs e)
 {
-    PrintTwoColumns("Refresh MAC Vendors", e.ProgressPercent.ToString("P0"), false);
+    Console.Write(String.Format("\rUpdating MAC vendor cache... {0}", e.ProgressPercent.ToString("P0")));
 }
 
 void PrintNetworkSummary(NetworkScanner networkScanner)
 {
+    Console.WriteLine();
+
     PrintTwoColumns("WAN IP", networkScanner.NetworkInfo.WanIp.ToString());
     PrintTwoColumns("Gateway", networkScanner.NetworkInfo.Gateway.IpAddress.ToString());
     PrintTwoColumns("Subnet Mask", networkScanner.NetworkInfo.SubnetMask.ToString());
     PrintTwoColumns("Network", networkScanner.NetworkInfo.Network);
-    PrintTwoColumns("Scan Date", networkScanner.ScanDate.ToString());
     PrintTwoColumns("Hosts Found", networkScanner.NetworkInfo.Hosts.Count.ToString());
 }
 
 void PrintTwoColumns(string col1, string col2, bool newLine = true)
 {
     var sep = " : ";
-    var col1Width = 23;
+    var col1Width = 11;
 
     if (newLine)
     {

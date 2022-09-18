@@ -10,7 +10,7 @@ namespace NetScan
 {
     public class NetworkScanner : INetworkScanner
     {
-
+        public event EventHandler IpScanStarted;
         public event EventHandler IpScanCompleted;
 
         public event EventHandler<IpScanProgressUpdatedEventArgs> IpScanProgressUpdated;
@@ -23,9 +23,9 @@ namespace NetScan
 
         public class IpScanProgressUpdatedEventArgs : EventArgs
         {
-            public double IpCountScanned { get; set; }
-            public double IpCount { get; set; }
-            public double ProgressPercent => IpCountScanned / IpCount;
+            public int WorkItemCompletedCount { get; set; }
+            public int WorkItemTotalCount { get; set; }
+            public double ProgressPercent => (double)WorkItemCompletedCount / (double)WorkItemTotalCount;
         }
 
         public NetworkInfo NetworkInfo { get; set; }
@@ -55,6 +55,11 @@ namespace NetScan
 
         public List<HostInfo> GetAllHosts()
         {
+
+            this.ScanDate = DateTime.Now;
+            _stopwatch.Start();
+            this.IpScanStarted?.Invoke(this, EventArgs.Empty);
+
             var ipRange = _ipNetwork.ListIPAddress(FilterEnum.Usable);
 
             this.NetworkInfo.Hosts = ArpPing(ipRange);
@@ -160,11 +165,10 @@ namespace NetScan
 
         private List<HostInfo> ArpPing(IPAddressCollection ipRange)
         {
+            int workItemTotalCount = (int)ipRange.Count * 2;
+            int workItemCompletedCount = 0;
+            
             var hosts = new List<HostInfo>();
-
-            this.ScanDate = DateTime.Now;
-
-            _stopwatch.Start();
 
             List<Thread> threads = new List<Thread>();
 
@@ -182,22 +186,30 @@ namespace NetScan
                 });
                 thread.Start();
                 threads.Add(thread);
+                workItemCompletedCount += 1;
+                UpdateProgress(workItemCompletedCount, workItemTotalCount);
             }
 
             for (int i = 0; i < threads.Count; i++)
             {
                 threads[i].Join();
 
-                var args = new IpScanProgressUpdatedEventArgs()
-                {
-                    IpCountScanned = ((double)i + 1),
-                    IpCount = (double)threads.Count
-                };
-
-                this.OnIpScanProgressUpdated(args);
+                workItemCompletedCount += 1;
+                UpdateProgress(workItemCompletedCount, workItemTotalCount);
             }
 
             return hosts;
+        }
+
+        private void UpdateProgress(int workItemCompletedCount, int workItemTotalCount)
+        {
+            var args = new IpScanProgressUpdatedEventArgs()
+            {
+                WorkItemCompletedCount = workItemCompletedCount,
+                WorkItemTotalCount = workItemTotalCount
+            };
+
+            this.OnIpScanProgressUpdated(args);
         }
 
         private IPAddress GetLocalIpAddress()

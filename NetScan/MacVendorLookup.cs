@@ -1,15 +1,24 @@
 ﻿using NetScan.Models;
-using System.Text.Json;
-using static NetScan.NetworkScanner;
-using System.Threading;
-using System.Diagnostics;
 using System.Configuration;
+using System.Diagnostics;
+using System.Text.Json;
 
 namespace NetScan
 {
     public static class MacVendorLookup
     {
-        public static event EventHandler RefreshMacVendorsComplete;
+        public static event EventHandler<RefreshMacVendorsCompleteEventArgs> RefreshMacVendorsComplete;
+
+        public class RefreshMacVendorsCompleteEventArgs : EventArgs
+        {
+            public bool MacCacheChanged { get; set; }
+        }
+
+        public static void OnRefreshMacVendorsComplete(RefreshMacVendorsCompleteEventArgs e)
+        {
+            EventHandler<RefreshMacVendorsCompleteEventArgs> handler = RefreshMacVendorsComplete;
+            handler?.Invoke(null, e);
+        }
 
         public static event EventHandler<RefrechMacProgressUpdatedProgressUpdatedEventArgs> RefrechMacProgressUpdated;
 
@@ -21,9 +30,10 @@ namespace NetScan
 
         public class RefrechMacProgressUpdatedProgressUpdatedEventArgs : EventArgs
         {
-            public double MacScanned { get; set; }
-            public double MacCount { get; set; }
-            public double ProgressPercent => MacScanned / MacCount;
+            public int WorkItemCompletedCount { get; set; }
+            public int WorkItemTotalCount { get; set; }
+            public double ProgressPercent => (double)WorkItemCompletedCount / (double)WorkItemTotalCount;
+            public TimeSpan ElapsedTime { get; set; }
         }
 
         private static readonly HttpClient _client = new HttpClient();
@@ -44,13 +54,13 @@ namespace NetScan
 
         private static Stopwatch _stopwatch = new Stopwatch();
 
-
-        private static void UpdateProgress(double macScanned, double macCount)
+        private static void UpdateProgress(int workItemCompletedCount, int workItemTotalCount, TimeSpan elapstedTime)
         {
             var args = new RefrechMacProgressUpdatedProgressUpdatedEventArgs()
             {
-                MacScanned = macScanned,
-                MacCount = macCount
+                WorkItemCompletedCount = workItemCompletedCount,
+                WorkItemTotalCount = workItemTotalCount,
+                ElapsedTime = elapstedTime
             };
 
             OnRefrechMacProgressUpdated(args);
@@ -61,9 +71,6 @@ namespace NetScan
             _stopwatch.Start();
 
             int cacheDayThreshold = int.Parse(ConfigurationManager.AppSettings.Get("CacheDayThreshold"));
-
-            double macCount = hosts.Count;
-            double macScanned = 0;
 
             var macVendorsFromApi = new List<MacVendor>();
 
@@ -80,11 +87,17 @@ namespace NetScan
                     if (macVendor != null)
                     {
                         h.MacVendor = macVendor.Vendor;
-                        macScanned += 1;
-                        UpdateProgress(macScanned, macCount);
                     }
                 }
             }
+
+            int workItemTotalCount = hosts.Where(h => string.IsNullOrEmpty(h.MacVendor)).ToList().Count;
+            int workItemCompletedCount = 0;
+
+            var args = new RefreshMacVendorsCompleteEventArgs()
+            {
+                MacCacheChanged = false
+            };
 
             // lookup mac vendors from API for hosts not in cache
             foreach (var h in hosts)
@@ -94,15 +107,16 @@ namespace NetScan
                     var macVendor = GetMacVendorFromApi(h.MacAddress);
                     macVendorsFromApi.Add(macVendor);
                     h.MacVendor = macVendor.Vendor;
-                    macScanned += 1;
-                    UpdateProgress(macScanned, macCount);
+                    args.MacCacheChanged = true;
+                    workItemCompletedCount += 1;
+                    UpdateProgress(workItemCompletedCount, workItemTotalCount, _stopwatch.Elapsed);
                 }
             }
 
             _stopwatch.Stop();
             ScanDuration = _stopwatch.Elapsed;
 
-            RefreshMacVendorsComplete?.Invoke(hosts, EventArgs.Empty);
+            RefreshMacVendorsComplete?.Invoke(null, args);
 
             // rebuild and save cache
             SaveMacVendorsToCache(macVendorsFromApi);
