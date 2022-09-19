@@ -29,7 +29,6 @@ namespace NetScan
         }
 
         public NetworkInfo NetworkInfo { get; set; }
-        public DateTime ScanDate { get; set; }
         public TimeSpan ScanDuration { get; set; }
 
         private IPNetwork _ipNetwork;
@@ -45,8 +44,8 @@ namespace NetScan
             NetworkInfo = new NetworkInfo()
             {
                 Gateway = GetLocalGateway(),
-                SubnetMask = subnetMask,
-                WanIp = GetWanIp(),
+                SubnetMask = subnetMask.ToString(),
+                WanIp = GetWanIp().ToString(),
                 Network = _ipNetwork.Value
             };
 
@@ -56,7 +55,7 @@ namespace NetScan
         public List<HostInfo> GetAllHosts()
         {
 
-            this.ScanDate = DateTime.Now;
+            this.NetworkInfo.LastScanDate = DateTime.Now;
             _stopwatch.Start();
             this.IpScanStarted?.Invoke(this, EventArgs.Empty);
 
@@ -67,6 +66,7 @@ namespace NetScan
             _stopwatch.Stop();
 
             this.ScanDuration = _stopwatch.Elapsed;
+            NetworkInfo.ScanDurationSeconds = _stopwatch.Elapsed.TotalSeconds;
 
             this.IpScanCompleted?.Invoke(this, EventArgs.Empty);
 
@@ -79,7 +79,7 @@ namespace NetScan
         {
             var host = new HostInfo()
             {
-                IpAddress = ipAddress,
+                IpAddress = ipAddress.ToString(),
                 MacAddress = GetMacByIp(ipAddress),
                 HostName = Dns.GetHostEntry(ipAddress).HostName
             };
@@ -93,7 +93,7 @@ namespace NetScan
 
             var host = new HostInfo()
             {
-                IpAddress = ip,
+                IpAddress = ip.ToString(),
                 MacAddress = macAddress,
                 HostName = Dns.GetHostEntry(ip).HostName
             };
@@ -120,9 +120,10 @@ namespace NetScan
                 {
                     foreach (GatewayIPAddressInformation d in f.GetIPProperties().GatewayAddresses)
                     {
-                        gatewayHost.IpAddress = d.Address;
+                        gatewayHost.IpAddress = d.Address.ToString();
                         gatewayHost.MacAddress = GetMacByIp(d.Address);
                         gatewayHost.HostName = GetHostNameByIp(d.Address);
+                        gatewayHost.MacVendor = MacVendorLookup.GetMacVendor(gatewayHost.MacAddress);
                         break;
                     }
                 }
@@ -135,7 +136,7 @@ namespace NetScan
         {
             var localHost = new HostInfo()
             {
-                IpAddress = GetLocalIpAddress(),
+                IpAddress = GetLocalIpAddress().ToString(),
                 MacAddress = GetLocalMacAddress(),
                 HostName = Dns.GetHostName()
             };
@@ -153,7 +154,7 @@ namespace NetScan
                 {
                     if (unicastIPAddressInformation.Address.AddressFamily == AddressFamily.InterNetwork)
                     {
-                        if (localHost.IpAddress.Equals(unicastIPAddressInformation.Address))
+                        if (IPAddress.Parse(localHost.IpAddress).Equals(unicastIPAddressInformation.Address))
                         {
                             return unicastIPAddressInformation.IPv4Mask;
                         }

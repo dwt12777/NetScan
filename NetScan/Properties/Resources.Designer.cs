@@ -59,5 +59,37 @@ namespace NetScan.Properties {
                 resourceCulture = value;
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to 
+        ///Netscan v{version}
+        ///
+        ///DESCRIPTION
+        ///-----------
+        ///Scan your local network and retrieve a list of all active hosts.
+        ///
+        ///USAGE
+        ///-----
+        ///
+        ///  netscan [options]
+        ///
+        ///    Options:
+        ///	  
+        ///      -h, --help, /?, -?    Show this help screen
+        ///
+        ///      -c, --clear, /c       Clear the mac vendor cache (see below)
+        ///
+        ///      -j, --json, /j        Output results in JSON format
+        ///
+        ///
+        ///MAC VENDOR CACHE
+        ///----------------
+        ///Netscan uses a third party provider (https://macvendors.com/) to lookup mac vendor names. The process is throttled [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string help {
+            get {
+                return ResourceManager.GetString("help", resourceCulture);
+            }
+        }
     }
 }

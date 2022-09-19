@@ -7,9 +7,17 @@
     <Nullable>enable</Nullable>
     <Company>ReardenTools</Company>
     <Description>Scans local network for online hosts</Description>
-    <AssemblyVersion>1.2.0.0</AssemblyVersion>
-    <FileVersion>1.2.0.0</FileVersion>
+    <AssemblyVersion>1.2.1.0</AssemblyVersion>
+    <FileVersion>1.2.1.0</FileVersion>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="help.txt" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\help.txt" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="IPNetwork2" Version="2.6.467" />
@@ -29,12 +37,6 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Update="readme.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
   </ItemGroup>
 
 </Project>

@@ -1,0 +1,32 @@
+﻿
+Netscan v{version}
+
+DESCRIPTION
+-----------
+Scan your local network and retrieve a list of all active hosts.
+
+USAGE
+-----
+
+  netscan [options]
+
+    Options:
+	  
+      -h, --help, /?, -?    Show this help screen
+
+      -c, --clear, /c       Clear the mac vendor cache (see below)
+
+      -j, --json, /j        Output results in JSON format
+
+
+MAC VENDOR CACHE
+----------------
+Netscan uses a third party provider (https://macvendors.com/) to lookup MAC vendor names. The process is throttled to allow one lookup per second. However the results are cached so that subsequent netscan runs can use the cached data and return results much faster. Only new MAC addresses require the external lookup. This process is mostly transparent to you, except that you'll notice a longer run-time the first time you run this tool.
+
+By default, the items are cached for 365 days. However you can change that by editing the file:
+
+  NetScan.dll.config
+
+If you'd like to clear the cache and rebuild it, use the option "-c" mentioned above.
+
+

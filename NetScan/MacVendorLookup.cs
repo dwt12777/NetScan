@@ -66,6 +66,22 @@ namespace NetScan
             OnRefrechMacProgressUpdated(args);
         }
 
+        public static string GetMacVendor(string macAddress)
+        {
+            var macVendor = _macVendorCache.FirstOrDefault(x => x.MacAddress == macAddress)?.Vendor;
+
+            if (macVendor == null)
+            {
+                var v = GetMacVendorFromApi(macAddress);
+                macVendor = v.Vendor;
+                _macVendorCache.Add(v);
+                string json = JsonSerializer.Serialize<List<MacVendor>>(_macVendorCache);
+                File.WriteAllText(MacVendorCacheFile, json);
+            }
+
+            return macVendor;
+        }
+
         public static List<HostInfo> RefreshMacVendors(List<HostInfo> hosts)
         {
             _stopwatch.Start();
@@ -193,5 +209,9 @@ namespace NetScan
                 return null;
         }
 
+        public static void ClearCache()
+        {
+            File.Delete(MacVendorCacheFile);
+        }
     }
 }
