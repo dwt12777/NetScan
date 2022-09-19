@@ -1,6 +1,4 @@
-﻿using System.Net;
-
-namespace NetScan.Models
+﻿namespace NetScan.Models
 {
     public class NetworkInfo
     {
@@ -8,7 +6,7 @@ namespace NetScan.Models
         public HostInfo Gateway { get; set; }
         public string SubnetMask { get; set; }
         public string Network { get; set; }
-        public DateTime LastScanDate { get; set; }
+        public DateTime ScanDate { get; set; }
         public double ScanDurationSeconds { get; set; }
 
         public List<HostInfo> Hosts { get; set; }

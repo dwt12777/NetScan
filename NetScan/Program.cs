@@ -29,7 +29,8 @@ networkScanner.NetworkInfo.Hosts = MacVendorLookup.RefreshMacVendors(networkScan
 if (JsonRequested(args))
 {
     networkScanner.NetworkInfo.Hosts = networkScanner.NetworkInfo.Hosts.OrderBy(h => h.IpAddressLabel).ToList();
-    string json = JsonSerializer.Serialize<NetworkInfo>(networkScanner.NetworkInfo);
+    var jsonOptions = new JsonSerializerOptions() { WriteIndented = true };
+    string json = JsonSerializer.Serialize<NetworkInfo>(networkScanner.NetworkInfo, jsonOptions);
     Console.WriteLine(json);
 }
 else
@@ -41,13 +42,11 @@ else
     PrintHosts(networkScanner.NetworkInfo.Hosts);
 }
 
-
-
 void DisplayHelp()
 {
     string version = System.Reflection.Assembly.GetEntryAssembly().GetName().Version.ToString();
 
-    string help = NetScan.Properties.Resources.help.Replace("{version}", version);
+    string help = NetScan.Properties.Resources.Help.Replace("{version}", version);
 
     Utilities.WriteLineWordWrap(help, 4);
 
@@ -96,18 +95,17 @@ void NetworkScanner_IpScanProgressUpdated(object? sender, NetworkScanner.IpScanP
 }
 
 void NetworkScanner_IpScanCompleted(object? sender, EventArgs e)
-{
-    Console.Error.WriteLine(string.Format(" ({0:.00}s)", networkScanner.ScanDuration.TotalSeconds));
+{   
+    Console.Error.WriteLine(string.Format(" ({0:0.00}s)", networkScanner.ScanDuration.TotalSeconds));
 }
 
 // MAC Vendor Lookup event handlers
-void MacVendorLookup_RefreshMacVendorsComplete(object? sender, MacVendorLookup.RefreshMacVendorsCompleteEventArgs e)
+void MacVendorLookup_RefreshMacVendorsComplete(object? sender, MacVendorLookup.ProgressCompletedEventArgs e)
 {
-    if (e.MacCacheChanged)
-        Console.Error.WriteLine(string.Format(" ({0:.00}s)", MacVendorLookup.ScanDuration.TotalSeconds));
+    Console.Error.WriteLine($" - {e.CacheItemsCurrent} Current, {e.CacheItemsAdded} Added, {e.CacheItemsUpdated} Updated");
 }
 
-void MacVendorLookup_RefrechMacProgressUpdated(object? sender, MacVendorLookup.RefrechMacProgressUpdatedProgressUpdatedEventArgs e)
+void MacVendorLookup_RefrechMacProgressUpdated(object? sender, MacVendorLookup.ProgressUpdatedEventArgs e)
 {
     Console.Error.Write(String.Format("\rUpdating MAC vendor cache... {0}", e.ProgressPercent.ToString("P0")));
 }
@@ -154,7 +152,7 @@ void PrintHosts(List<HostInfo> hostInfos)
     var maxIpLength = hostInfos.Max(h => h.IpAddress.ToString().Length);
     var maxHostLength = hostInfos.Where(h => h.HostName != null).Max(h => h.HostName.Length);
     var maxMacLength = hostInfos.Max(h => h.MacAddress.Length);
-    var maxVendorLength = hostInfos.Max(h => h.MacVendor.Length);
+    var maxVendorLength = hostInfos.Where(H => H.MacVendor != null).Max(h => h.MacVendor.Length);
 
     var colSpace = 2;
 
@@ -175,12 +173,19 @@ void PrintHosts(List<HostInfo> hostInfos)
     foreach (var hi in hostInfos)
     {
         sb.Append(hi.IpAddress.ToString().PadRight(maxIpLength + colSpace));
+
         if (hi.HostName == null)
             sb.Append("".PadRight(maxHostLength + colSpace));
         else
             sb.Append(hi.HostName.PadRight(maxHostLength + colSpace));
+
         sb.Append(hi.MacAddress.PadRight(maxMacLength + colSpace));
-        sb.Append(hi.MacVendor.PadRight(maxMacLength + colSpace));
+
+        if (hi.MacVendor == null)
+            sb.Append("".PadRight(maxVendorLength + colSpace));
+        else
+            sb.Append(hi.MacVendor.PadRight(maxVendorLength + colSpace));
+
         sb.AppendLine();
     }
 

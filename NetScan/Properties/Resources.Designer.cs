@@ -61,6 +61,15 @@ namespace NetScan.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to NetScan.
+        /// </summary>
+        internal static string AppName {
+            get {
+                return ResourceManager.GetString("AppName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to 
         ///Netscan v{version}
         ///
@@ -75,20 +84,27 @@ namespace NetScan.Properties {
         ///
         ///    Options:
         ///	  
-        ///      -h, --help, /?, -?    Show this help screen
-        ///
-        ///      -c, --clear, /c       Clear the mac vendor cache (see below)
-        ///
-        ///      -j, --json, /j        Output results in JSON format
+        ///      /?, -?, -h, --help    Show this help screen
+        ///      /c, -c, --clear       Clear the mac vendor cache (see below)
+        ///      /j, -j, --json        Output results in JSON format
         ///
         ///
         ///MAC VENDOR CACHE
         ///----------------
-        ///Netscan uses a third party provider (https://macvendors.com/) to lookup mac vendor names. The process is throttled [rest of string was truncated]&quot;;.
+        ///Netscan uses a third party provider (https://macvendors.com/) to lookup MAC vendor names. The process is throttled to  [rest of string was truncated]&quot;;.
         /// </summary>
-        internal static string help {
+        internal static string Help {
             get {
-                return ResourceManager.GetString("help", resourceCulture);
+                return ResourceManager.GetString("Help", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to MacVendorCache.json.
+        /// </summary>
+        internal static string MacVendorCacheFileName {
+            get {
+                return ResourceManager.GetString("MacVendorCacheFileName", resourceCulture);
             }
         }
     }

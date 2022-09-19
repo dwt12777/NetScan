@@ -7,160 +7,112 @@ namespace NetScan
 {
     public static class MacVendorLookup
     {
-        public static event EventHandler<RefreshMacVendorsCompleteEventArgs> RefreshMacVendorsComplete;
-
-        public class RefreshMacVendorsCompleteEventArgs : EventArgs
-        {
-            public bool MacCacheChanged { get; set; }
-        }
-
-        public static void OnRefreshMacVendorsComplete(RefreshMacVendorsCompleteEventArgs e)
-        {
-            EventHandler<RefreshMacVendorsCompleteEventArgs> handler = RefreshMacVendorsComplete;
-            handler?.Invoke(null, e);
-        }
-
-        public static event EventHandler<RefrechMacProgressUpdatedProgressUpdatedEventArgs> RefrechMacProgressUpdated;
-
-        public static void OnRefrechMacProgressUpdated(RefrechMacProgressUpdatedProgressUpdatedEventArgs e)
-        {
-            EventHandler<RefrechMacProgressUpdatedProgressUpdatedEventArgs> handler = RefrechMacProgressUpdated;
-            handler?.Invoke(null, e);
-        }
-
-        public class RefrechMacProgressUpdatedProgressUpdatedEventArgs : EventArgs
-        {
-            public int WorkItemCompletedCount { get; set; }
-            public int WorkItemTotalCount { get; set; }
-            public double ProgressPercent => (double)WorkItemCompletedCount / (double)WorkItemTotalCount;
-            public TimeSpan ElapsedTime { get; set; }
-        }
-
         private static readonly HttpClient _client = new HttpClient();
         private static DateTime _lastRequestTime = DateTime.Now;
         private static List<MacVendor> _macVendorCache = GetMacVendorsFromCache();
-        public static TimeSpan ScanDuration { get; set; }
+        private static Stopwatch _stopwatch = new Stopwatch();
+        private static int _cacheItemsCurrent = 0;
+        private static int _cacheItemsAdded = 0;
+        private static int _cacheItemsUpdated = 0;
+
+        public static event EventHandler<ProgressCompletedEventArgs> RefreshMacVendorsComplete;
+        public static event EventHandler<ProgressUpdatedEventArgs> RefrechMacProgressUpdated;
 
         public static string MacVendorCacheFile
         {
             get
             {
                 var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-                var appName = "NetScan";
+                var appName = Properties.Resources.AppName;
                 Directory.CreateDirectory(Path.Combine(appData, appName));
-                return Path.Combine(appData, appName, "MacVendorCache.json");
+                return Path.Combine(appData, appName, Properties.Resources.MacVendorCacheFileName);
             }
-        }
-
-        private static Stopwatch _stopwatch = new Stopwatch();
-
-        private static void UpdateProgress(int workItemCompletedCount, int workItemTotalCount, TimeSpan elapstedTime)
-        {
-            var args = new RefrechMacProgressUpdatedProgressUpdatedEventArgs()
-            {
-                WorkItemCompletedCount = workItemCompletedCount,
-                WorkItemTotalCount = workItemTotalCount,
-                ElapsedTime = elapstedTime
-            };
-
-            OnRefrechMacProgressUpdated(args);
         }
 
         public static string GetMacVendor(string macAddress)
         {
-            var macVendor = _macVendorCache.FirstOrDefault(x => x.MacAddress == macAddress)?.Vendor;
+            int cacheDayThreshold = int.Parse(ConfigurationManager.AppSettings.Get("CacheDayThreshold"));
+
+            var macVendor = _macVendorCache
+                .Where(v => (DateTime.Now - v.LookupDate).TotalDays < cacheDayThreshold)
+                .FirstOrDefault(v => v.MacAddress == macAddress);
 
             if (macVendor == null)
             {
-                var v = GetMacVendorFromApi(macAddress);
-                macVendor = v.Vendor;
-                _macVendorCache.Add(v);
+                macVendor = GetMacVendorFromApi(macAddress);
+
+                // remove the cached entry, if any (there may be one in there older than cachDayThreshold)
+                var cachedEntry = _macVendorCache.FirstOrDefault(c => c.MacAddress == macAddress);
+                if (cachedEntry != null)
+                {
+                    _macVendorCache.Remove(cachedEntry);
+                    _cacheItemsUpdated++;
+                }
+                else
+                {
+                    _cacheItemsAdded++;
+                }
+
+                // If API didn't return a value, create MV with empty name for cache
+                if (macVendor == null)
+                {
+                    macVendor = new MacVendor() { MacAddress = macAddress, LookupDate = DateTime.Now, Vendor = null };
+                }
+                // add the new entry retrived from API (will have updated vendor name and timestamp)
+                _macVendorCache.Add(macVendor);
+                _macVendorCache = _macVendorCache.OrderBy(c => c.LookupDate).ToList();
                 string json = JsonSerializer.Serialize<List<MacVendor>>(_macVendorCache);
                 File.WriteAllText(MacVendorCacheFile, json);
             }
+            else
+            {
+                _cacheItemsCurrent++;
+            }
 
-            return macVendor;
+            return macVendor.Vendor;
         }
 
         public static List<HostInfo> RefreshMacVendors(List<HostInfo> hosts)
         {
             _stopwatch.Start();
 
-            int cacheDayThreshold = int.Parse(ConfigurationManager.AppSettings.Get("CacheDayThreshold"));
+            List<string> macAddresses = hosts.Select(x => x.MacAddress).Distinct().ToList();
 
-            var macVendorsFromApi = new List<MacVendor>();
-
-            var macCache = GetMacVendorsFromCache();
-
-            // read from cache first
-            if (File.Exists(MacVendorCacheFile))
+            var progressArgs = new ProgressUpdatedEventArgs()
             {
-                foreach (var h in hosts)
-                {
-                    var macVendor = _macVendorCache
-                        .Where(v => (DateTime.Now - v.LookupDate).TotalDays < cacheDayThreshold)
-                        .FirstOrDefault(v => v.MacAddress == h.MacAddress);
-                    if (macVendor != null)
-                    {
-                        h.MacVendor = macVendor.Vendor;
-                    }
-                }
-            }
-
-            int workItemTotalCount = hosts.Where(h => string.IsNullOrEmpty(h.MacVendor)).ToList().Count;
-            int workItemCompletedCount = 0;
-
-            var args = new RefreshMacVendorsCompleteEventArgs()
-            {
-                MacCacheChanged = false
+                WorkItemCompletedCount = 0,
+                WorkItemTotalCount = macAddresses.Count
             };
 
-            // lookup mac vendors from API for hosts not in cache
-            foreach (var h in hosts)
+            _cacheItemsAdded = 0;
+            _cacheItemsUpdated = 0;
+            _cacheItemsCurrent = 0;
+
+            foreach (var m in macAddresses)
             {
-                if (string.IsNullOrEmpty(h.MacVendor))
-                {
-                    var macVendor = GetMacVendorFromApi(h.MacAddress);
-                    macVendorsFromApi.Add(macVendor);
-                    h.MacVendor = macVendor.Vendor;
-                    args.MacCacheChanged = true;
-                    workItemCompletedCount += 1;
-                    UpdateProgress(workItemCompletedCount, workItemTotalCount, _stopwatch.Elapsed);
-                }
+                var macVendor = GetMacVendor(m);
+                hosts
+                    .Where(h => h.MacAddress == m)
+                    .ToList()
+                    .ForEach(h => h.MacVendor = macVendor);
+                progressArgs.WorkItemCompletedCount++;
+                progressArgs.ElapsedTime = _stopwatch.Elapsed;
+                OnRefrechMacProgressUpdated(progressArgs);
             }
 
             _stopwatch.Stop();
-            ScanDuration = _stopwatch.Elapsed;
 
-            RefreshMacVendorsComplete?.Invoke(null, args);
+            var completedArgs = new ProgressCompletedEventArgs()
+            {
+                CacheItemsCurrent = _cacheItemsCurrent,
+                CacheItemsAdded = _cacheItemsAdded,
+                CacheItemsUpdated = _cacheItemsUpdated,
+                ProcessingTime = _stopwatch.Elapsed
+            };
 
-            // rebuild and save cache
-            SaveMacVendorsToCache(macVendorsFromApi);
+            RefreshMacVendorsComplete?.Invoke(null, completedArgs);
 
             return hosts;
-        }
-
-        private static void SaveMacVendorsToCache(List<MacVendor> macVendors)
-        {
-            
-            foreach (var v in macVendors)
-            {
-                if (_macVendorCache.FirstOrDefault(c => c.MacAddress == v.MacAddress) == null)
-                {
-                    _macVendorCache.Add(v);
-                }
-                else
-                {
-                    var existingMacVendor = _macVendorCache.FirstOrDefault(c => c.MacAddress == v.MacAddress);
-                    _macVendorCache.Remove(existingMacVendor);
-                    _macVendorCache.Add(v);
-                }
-            }
-
-            _macVendorCache = _macVendorCache.OrderBy(v => v.LookupDate).ToList();
-
-            string json = JsonSerializer.Serialize<List<MacVendor>>(_macVendorCache);
-            File.WriteAllText(MacVendorCacheFile, json);
         }
 
         private static List<MacVendor> GetMacVendorsFromCache()
@@ -189,12 +141,21 @@ namespace NetScan
                 Thread.Sleep(sleepMilliseconds);
             }
 
-            string macVendorString = _client
+            string macVendorString;
+            try
+            {
+                macVendorString = _client
                 .GetStringAsync(requestString)
                 .Result
                 .Replace("\\r\\n", "")
                 .Replace("\\n", "")
                 .Trim();
+            }
+            catch (Exception)
+            {
+                macVendorString = null;
+            }
+
 
             _lastRequestTime = DateTime.Now;
 
@@ -212,6 +173,34 @@ namespace NetScan
         public static void ClearCache()
         {
             File.Delete(MacVendorCacheFile);
+        }
+
+        public static void OnRefrechMacProgressUpdated(ProgressUpdatedEventArgs e)
+        {
+            EventHandler<ProgressUpdatedEventArgs> handler = RefrechMacProgressUpdated;
+            handler?.Invoke(null, e);
+        }
+
+        public static void OnRefreshMacVendorsComplete(ProgressCompletedEventArgs e)
+        {
+            EventHandler<ProgressCompletedEventArgs> handler = RefreshMacVendorsComplete;
+            handler?.Invoke(null, e);
+        }
+
+        public class ProgressUpdatedEventArgs : EventArgs
+        {
+            public int WorkItemCompletedCount { get; set; }
+            public int WorkItemTotalCount { get; set; }
+            public double ProgressPercent => (double)WorkItemCompletedCount / (double)WorkItemTotalCount;
+            public TimeSpan ElapsedTime { get; set; }
+        }
+
+        public class ProgressCompletedEventArgs : EventArgs
+        {
+            public int CacheItemsCurrent { get; set; }
+            public int CacheItemsAdded { get; set; }
+            public int CacheItemsUpdated { get; set; }
+            public TimeSpan ProcessingTime { get; set; }
         }
     }
 }

@@ -55,7 +55,7 @@ namespace NetScan
         public List<HostInfo> GetAllHosts()
         {
 
-            this.NetworkInfo.LastScanDate = DateTime.Now;
+            this.NetworkInfo.ScanDate = DateTime.Now;
             _stopwatch.Start();
             this.IpScanStarted?.Invoke(this, EventArgs.Empty);
 
