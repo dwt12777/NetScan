@@ -152,7 +152,7 @@ void PrintHosts(List<HostInfo> hostInfos)
     hostInfos = hostInfos.OrderBy(h => h.IpAddressLabel).ToList();
 
     var maxIpLength = hostInfos.Max(h => h.IpAddress.ToString().Length);
-    var maxHostLength = hostInfos.Max(h => h.HostName.Length);
+    var maxHostLength = hostInfos.Where(h => h.HostName != null).Max(h => h.HostName.Length);
     var maxMacLength = hostInfos.Max(h => h.MacAddress.Length);
     var maxVendorLength = hostInfos.Max(h => h.MacVendor.Length);
 
@@ -174,10 +174,13 @@ void PrintHosts(List<HostInfo> hostInfos)
 
     foreach (var hi in hostInfos)
     {
-        sb.Append(hi.IpAddress.ToString().PadRight(maxIpLength + 2));
-        sb.Append(hi.HostName.PadRight(maxHostLength + 2));
-        sb.Append(hi.MacAddress.PadRight(maxMacLength + 2));
-        sb.Append(hi.MacVendor.PadRight(maxMacLength + 2));
+        sb.Append(hi.IpAddress.ToString().PadRight(maxIpLength + colSpace));
+        if (hi.HostName == null)
+            sb.Append("".PadRight(maxHostLength + colSpace));
+        else
+            sb.Append(hi.HostName.PadRight(maxHostLength + colSpace));
+        sb.Append(hi.MacAddress.PadRight(maxMacLength + colSpace));
+        sb.Append(hi.MacVendor.PadRight(maxMacLength + colSpace));
         sb.AppendLine();
     }
 

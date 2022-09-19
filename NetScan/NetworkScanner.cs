@@ -77,11 +77,24 @@ namespace NetScan
 
         public HostInfo GetHostByIp(IPAddress ipAddress)
         {
+            var ip = ipAddress.ToString();
+            var macAddress = GetMacByIp(ipAddress);
+            string hostName;
+
+            try
+            {
+                hostName = Dns.GetHostEntry(ipAddress)?.HostName;
+            }
+            catch (Exception)
+            {
+                hostName = null;
+            }
+
             var host = new HostInfo()
             {
-                IpAddress = ipAddress.ToString(),
-                MacAddress = GetMacByIp(ipAddress),
-                HostName = Dns.GetHostEntry(ipAddress).HostName
+                IpAddress = ip,
+                MacAddress = macAddress,
+                HostName = hostName
             };
 
             return host;
