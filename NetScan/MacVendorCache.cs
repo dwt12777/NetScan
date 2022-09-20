@@ -10,12 +10,9 @@ namespace NetScan
         private static readonly HttpClient _client = new HttpClient();
         private static DateTime _lastRequestTime = DateTime.Now;
         private static List<MacVendor> _macVendorCache = GetMacVendorsFromCache();
-        private static int _cacheItemsCurrent = 0;
-        private static int _cacheItemsAdded = 0;
-        private static int _cacheItemsUpdated = 0;
 
         public static event EventHandler<ProgressUpdatedEventArgs> UpdateMacVendorsProgressUpdate;
-        public static event EventHandler<ProgressCompletedEventArgs> UpdateMacVendorsComplete;
+        public static event EventHandler UpdateMacVendorsComplete;
 
         public static string MacVendorCacheFile
         {
@@ -28,7 +25,7 @@ namespace NetScan
             }
         }
 
-        public static string GetMacVendor(string macAddress)
+        public static string GetMacVendor(string macAddress, ProgressUpdatedEventArgs progressArgs)
         {
 
             int cacheDays = int.Parse(ConfigurationManager.AppSettings.Get("CacheDayThreshold") ?? 365.ToString());
@@ -40,7 +37,7 @@ namespace NetScan
             // if macVendor isn't null that means there's an existing entry in the cache within the right date range
             if (macVendor != null)
             {
-                _cacheItemsCurrent++;
+                progressArgs.CacheItemsCurrent++;
             }
             // if it is null, ether the cached entry has aged out or there isn't one at all, in eaither case, need to look it up through the API
             else
@@ -52,11 +49,11 @@ namespace NetScan
                 if (cachedEntry != null)
                 {
                     _macVendorCache.Remove(cachedEntry);
-                    _cacheItemsUpdated++;
+                    progressArgs.CacheItemsUpdated++;
                 }
                 else
                 {
-                    _cacheItemsAdded++;
+                    progressArgs.CacheItemsAdded++;
                 }
 
                 // If API didn't return a value, create MV with empty name for cache so subsequent runs don't keep trying to look it up
@@ -85,16 +82,15 @@ namespace NetScan
             var progressArgs = new ProgressUpdatedEventArgs()
             {
                 WorkItemCompletedCount = 0,
-                WorkItemTotalCount = macAddresses.Count
+                WorkItemTotalCount = macAddresses.Count,
+                CacheItemsCurrent = 0,
+                CacheItemsAdded = 0,
+                CacheItemsUpdated = 0
             };
-
-            _cacheItemsAdded = 0;
-            _cacheItemsUpdated = 0;
-            _cacheItemsCurrent = 0;
 
             foreach (var ma in macAddresses)
             {
-                var macVendor = GetMacVendor(ma);
+                var macVendor = GetMacVendor(ma, progressArgs);
                 hosts
                     .Where(h => h.MacAddress == ma)
                     .ToList()
@@ -106,15 +102,7 @@ namespace NetScan
 
             stopwatch.Stop();
 
-            var completedArgs = new ProgressCompletedEventArgs()
-            {
-                CacheItemsCurrent = _cacheItemsCurrent,
-                CacheItemsAdded = _cacheItemsAdded,
-                CacheItemsUpdated = _cacheItemsUpdated,
-                ProcessingTime = stopwatch.Elapsed
-            };
-
-            UpdateMacVendorsComplete?.Invoke(null, completedArgs);
+            UpdateMacVendorsComplete?.Invoke(null, EventArgs.Empty);
         }
 
         private static List<MacVendor> GetMacVendorsFromCache()
@@ -182,26 +170,23 @@ namespace NetScan
             handler?.Invoke(null, e);
         }
 
-        public static void OnRefreshMacVendorsComplete(ProgressCompletedEventArgs e)
+        public static void OnRefreshMacVendorsComplete()
         {
-            EventHandler<ProgressCompletedEventArgs> handler = UpdateMacVendorsComplete;
-            handler?.Invoke(null, e);
+            EventHandler handler = UpdateMacVendorsComplete;
+            handler?.Invoke(null, EventArgs.Empty);
         }
 
         public class ProgressUpdatedEventArgs : EventArgs
         {
             public int WorkItemCompletedCount { get; set; }
             public int WorkItemTotalCount { get; set; }
+            public int CacheItemsCurrent { get; set; }
+            public int CacheItemsAdded { get; set; }
+            public int CacheItemsUpdated { get; set; }
             public double ProgressPercent => (double)WorkItemCompletedCount / (double)WorkItemTotalCount;
             public TimeSpan ElapsedTime { get; set; }
         }
 
-        public class ProgressCompletedEventArgs : EventArgs
-        {
-            public int CacheItemsCurrent { get; set; }
-            public int CacheItemsAdded { get; set; }
-            public int CacheItemsUpdated { get; set; }
-            public TimeSpan ProcessingTime { get; set; }
-        }
+        
     }
 }

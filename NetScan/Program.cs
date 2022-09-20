@@ -3,13 +3,15 @@ using NetScan.Models;
 using System.Text;
 using System.Text.Json;
 
-if (args.Length == 1 && HelpRequested(args[0]))
+_args = new ArgsParser(args);
+
+if (_args.HelpRequested)
 {
     DisplayHelp();
     Environment.Exit(0);
 }
 
-if (ClearCacheRequested(args))
+if (_args.ClearCacheRequested)
 {
     MacVendorCache.ClearCache();
     Console.WriteLine("MAC vendor cache cleared");
@@ -28,7 +30,7 @@ MacVendorCache.UpdateMacVendorsProgressUpdate += MacVendorLookup_RefrechMacProgr
 MacVendorCache.UpdateMacVendorsComplete += MacVendorLookup_RefreshMacVendorsComplete;
 MacVendorCache.UpdateMacVendorsForHosts(networkScanner.NetworkInfo.Hosts);
 
-if (JsonRequested(args))
+if (_args.JsonRequested)
 {
     networkScanner.NetworkInfo.Hosts = networkScanner.NetworkInfo.Hosts.OrderBy(h => h.IpAddressLabel).ToList();
     var jsonOptions = new JsonSerializerOptions() { WriteIndented = true };
@@ -54,37 +56,6 @@ void DisplayHelp()
 
 }
 
-bool ClearCacheRequested(string[] args)
-{
-    var clearCacheRequested = false;
-
-    foreach (var a in args)
-    {
-        if (a == "-c" || a == "--clear" || a == "/c")
-            clearCacheRequested = true;
-    }
-
-    return clearCacheRequested;
-}
-
-bool JsonRequested(string[] args)
-{
-    var jsonRequested = false;
-
-    foreach (var a in args)
-    {
-        if (a == "-j" || a == "--json" || a == "/j")
-            jsonRequested = true;
-    }
-
-    return jsonRequested;
-}
-
-static bool HelpRequested(string param)
-{
-    return param == "-h" || param == "--help" || param == "/?" || param == "-?";
-}
-
 // Network Scanner Event Handlers
 void NetworkScanner_IpScanStarted(object? sender, EventArgs e)
 {
@@ -93,23 +64,37 @@ void NetworkScanner_IpScanStarted(object? sender, EventArgs e)
 
 void NetworkScanner_IpScanProgressUpdated(object? sender, NetworkScanner.IpScanProgressUpdatedEventArgs e)
 {
-    Console.Error.Write(String.Format("\rScanning local area network... {0}", e.ProgressPercent.ToString("P0")));
+    if (_args.VerboseRequested)
+    {
+        Console.Error.Write($"\rScanning local area network... Progress: {e.ProgressPercent.ToString("P0")}, Addresses Scanned: {e.AddressesScanned}, Hosts Found: {e.HostsFound}, Processing Time: {string.Format("{0:0.00}s", e.ElapsedTime.TotalSeconds)}");
+    }
+    else
+    {
+        Console.Error.Write($"\rScanning local area network... Progress: {e.ProgressPercent.ToString("P0")}");
+    }
 }
 
 void NetworkScanner_IpScanCompleted(object? sender, EventArgs e)
 {   
-    Console.Error.WriteLine(string.Format(" ({0:0.00}s)", networkScanner.ScanDuration.TotalSeconds));
+    Console.Error.WriteLine();
 }
 
 // MAC Vendor Lookup event handlers
-void MacVendorLookup_RefreshMacVendorsComplete(object? sender, MacVendorCache.ProgressCompletedEventArgs e)
+void MacVendorLookup_RefreshMacVendorsComplete(object? sender, EventArgs e)
 {
-    Console.Error.WriteLine($" - {e.CacheItemsCurrent} Current, {e.CacheItemsAdded} Added, {e.CacheItemsUpdated} Updated");
+    Console.Error.WriteLine();
 }
 
 void MacVendorLookup_RefrechMacProgressUpdated(object? sender, MacVendorCache.ProgressUpdatedEventArgs e)
 {
-    Console.Error.Write(String.Format("\rUpdating MAC vendor cache... {0}", e.ProgressPercent.ToString("P0")));
+    if (_args.VerboseRequested)
+    {
+        Console.Error.Write($"\rUpdating MAC vendor cache...   Progress: {e.ProgressPercent.ToString("P0")}, Current: {e.CacheItemsCurrent}, Added: {e.CacheItemsAdded}, Updated: {e.CacheItemsUpdated}, Processing Time: {string.Format("{0:0.00}s", e.ElapsedTime.TotalSeconds)}");
+    }
+    else
+    {
+        Console.Error.Write($"\rUpdating MAC vendor cache...   Progress: {e.ProgressPercent.ToString("P0")}");
+    }
 }
 
 void PrintNetworkSummary(NetworkScanner networkScanner)
@@ -194,3 +179,7 @@ void PrintHosts(List<HostInfo> hostInfos)
     Console.Write(sb.ToString());
 }
 
+public partial class Program
+{
+    private static ArgsParser _args;
+}

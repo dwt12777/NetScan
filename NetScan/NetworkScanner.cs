@@ -10,30 +10,14 @@ namespace NetScan
 {
     public class NetworkScanner : INetworkScanner
     {
+        private IPNetwork _ipNetwork;
+        private readonly HttpClient _client = new HttpClient();
+
         public event EventHandler IpScanStarted;
+        public event EventHandler<IpScanProgressUpdatedEventArgs> IpScanProgressUpdated;
         public event EventHandler IpScanCompleted;
 
-        public event EventHandler<IpScanProgressUpdatedEventArgs> IpScanProgressUpdated;
-
-        protected virtual void OnIpScanProgressUpdated(IpScanProgressUpdatedEventArgs e)
-        {
-            EventHandler<IpScanProgressUpdatedEventArgs> handler = IpScanProgressUpdated;
-            handler?.Invoke(this, e);
-        }
-
-        public class IpScanProgressUpdatedEventArgs : EventArgs
-        {
-            public int WorkItemCompletedCount { get; set; }
-            public int WorkItemTotalCount { get; set; }
-            public double ProgressPercent => (double)WorkItemCompletedCount / (double)WorkItemTotalCount;
-        }
-
         public NetworkInfo NetworkInfo { get; set; }
-        public TimeSpan ScanDuration { get; set; }
-
-        private IPNetwork _ipNetwork;
-        private Stopwatch _stopwatch;
-        private readonly HttpClient _client = new HttpClient();
 
         public NetworkScanner()
         {
@@ -48,29 +32,18 @@ namespace NetScan
                 WanIp = GetWanIp().ToString(),
                 Network = _ipNetwork.Value
             };
-
-            _stopwatch = new Stopwatch();
         }
 
         public List<HostInfo> GetAllHosts()
         {
 
-            this.NetworkInfo.ScanDate = DateTime.Now;
-            _stopwatch.Start();
             this.IpScanStarted?.Invoke(this, EventArgs.Empty);
 
             var ipRange = _ipNetwork.ListIPAddress(FilterEnum.Usable);
 
             this.NetworkInfo.Hosts = ArpPing(ipRange);
 
-            _stopwatch.Stop();
-
-            this.ScanDuration = _stopwatch.Elapsed;
-            NetworkInfo.ScanDurationSeconds = _stopwatch.Elapsed.TotalSeconds;
-
             this.IpScanCompleted?.Invoke(this, EventArgs.Empty);
-
-            
 
             return this.NetworkInfo.Hosts;
         }
@@ -136,7 +109,7 @@ namespace NetScan
                         gatewayHost.IpAddress = d.Address.ToString();
                         gatewayHost.MacAddress = GetMacByIp(d.Address);
                         gatewayHost.HostName = GetHostNameByIp(d.Address);
-                        gatewayHost.MacVendor = MacVendorCache.GetMacVendor(gatewayHost.MacAddress);
+                        gatewayHost.MacVendor = MacVendorCache.GetMacVendor(gatewayHost.MacAddress, new MacVendorCache.ProgressUpdatedEventArgs());
                         break;
                     }
                 }
@@ -177,12 +150,29 @@ namespace NetScan
             throw new Exception(string.Format("Can't find subnetmask for IP address '{0}'", localHost.IpAddress));
         }
 
+        protected virtual void OnIpScanProgressUpdated(IpScanProgressUpdatedEventArgs e)
+        {
+            EventHandler<IpScanProgressUpdatedEventArgs> handler = IpScanProgressUpdated;
+            handler?.Invoke(this, e);
+        }
+
         private List<HostInfo> ArpPing(IPAddressCollection ipRange)
         {
-            int workItemTotalCount = (int)ipRange.Count * 2;
-            int workItemCompletedCount = 0;
-            
+
+            var stopwatch = new Stopwatch();
+            stopwatch.Start();
+
+            this.NetworkInfo.ScanDate = DateTime.Now;
+
             var hosts = new List<HostInfo>();
+
+            var args = new IpScanProgressUpdatedEventArgs()
+            {
+                WorkItemCompletedCount = 0,
+                WorkItemTotalCount = (int)ipRange.Count * 2,
+                HostsFound = 0,
+                AddressesScanned = 0
+            };
 
             List<Thread> threads = new List<Thread>();
 
@@ -196,34 +186,30 @@ namespace NetScan
                     {
                         var host = GetHostByIp(ip);
                         hosts.Add(host);
+                        args.HostsFound = hosts.Count;
                     }
                 });
                 thread.Start();
                 threads.Add(thread);
-                workItemCompletedCount += 1;
-                UpdateProgress(workItemCompletedCount, workItemTotalCount);
+                args.WorkItemCompletedCount++;
+                this.OnIpScanProgressUpdated(args);
             }
 
             for (int i = 0; i < threads.Count; i++)
             {
                 threads[i].Join();
 
-                workItemCompletedCount += 1;
-                UpdateProgress(workItemCompletedCount, workItemTotalCount);
+                args.WorkItemCompletedCount++;
+                args.AddressesScanned++;
+                args.ElapsedTime = stopwatch.Elapsed;
+
+                NetworkInfo.ScanDurationSeconds = args.ElapsedTime.TotalSeconds;
+                this.OnIpScanProgressUpdated(args);
             }
 
+            stopwatch.Stop();
+
             return hosts;
-        }
-
-        private void UpdateProgress(int workItemCompletedCount, int workItemTotalCount)
-        {
-            var args = new IpScanProgressUpdatedEventArgs()
-            {
-                WorkItemCompletedCount = workItemCompletedCount,
-                WorkItemTotalCount = workItemTotalCount
-            };
-
-            this.OnIpScanProgressUpdated(args);
         }
 
         private IPAddress GetLocalIpAddress()
@@ -312,12 +298,6 @@ namespace NetScan
             return mip;
         }
 
-        private struct MacIpPair
-        {
-            public string MacAddress;
-            public string IpAddress;
-        }
-
         private string GetHostNameByIp(IPAddress ipAddress)
         {
             try
@@ -350,6 +330,22 @@ namespace NetScan
                 .Trim();
 
                 return IPAddress.Parse(externalIpString);
+        }
+
+        public class IpScanProgressUpdatedEventArgs : EventArgs
+        {
+            public int WorkItemCompletedCount { get; set; } = 0;
+            public int WorkItemTotalCount { get; set; } = 0;
+            public int AddressesScanned { get; set; } = 0;
+            public int HostsFound { get; set; } = 0;    
+            public TimeSpan ElapsedTime { get; set; }
+            public double ProgressPercent => (double)WorkItemCompletedCount / (double)WorkItemTotalCount;
+        }
+
+        private struct MacIpPair
+        {
+            public string MacAddress;
+            public string IpAddress;
         }
     }
 }

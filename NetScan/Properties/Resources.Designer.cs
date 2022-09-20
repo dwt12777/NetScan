@@ -91,7 +91,7 @@ namespace NetScan.Properties {
         ///
         ///MAC VENDOR CACHE
         ///----------------
-        ///Netscan uses a third party provider (https://macvendors.com/) to lookup MAC vendor names. The process is throttled to  [rest of string was truncated]&quot;;.
+        ///Netscan uses a third party provider (https://macvendors.com/) to retrieve MAC vendor names. The process is throttled t [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string Help {
             get {
