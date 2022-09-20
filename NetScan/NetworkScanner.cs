@@ -136,7 +136,7 @@ namespace NetScan
                         gatewayHost.IpAddress = d.Address.ToString();
                         gatewayHost.MacAddress = GetMacByIp(d.Address);
                         gatewayHost.HostName = GetHostNameByIp(d.Address);
-                        gatewayHost.MacVendor = MacVendorLookup.GetMacVendor(gatewayHost.MacAddress);
+                        gatewayHost.MacVendor = MacVendorCache.GetMacVendor(gatewayHost.MacAddress);
                         break;
                     }
                 }

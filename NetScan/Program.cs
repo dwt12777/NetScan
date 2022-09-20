@@ -11,7 +11,9 @@ if (args.Length == 1 && HelpRequested(args[0]))
 
 if (ClearCacheRequested(args))
 {
-    MacVendorLookup.ClearCache();
+    MacVendorCache.ClearCache();
+    Console.WriteLine("MAC vendor cache cleared");
+    Environment.Exit(0);
 }
 
 // Scan local network
@@ -22,9 +24,9 @@ networkScanner.IpScanCompleted += NetworkScanner_IpScanCompleted;
 networkScanner.GetAllHosts();
 
 // Update MAC cache
-MacVendorLookup.RefrechMacProgressUpdated += MacVendorLookup_RefrechMacProgressUpdated;
-MacVendorLookup.RefreshMacVendorsComplete += MacVendorLookup_RefreshMacVendorsComplete;
-networkScanner.NetworkInfo.Hosts = MacVendorLookup.RefreshMacVendors(networkScanner.NetworkInfo.Hosts);
+MacVendorCache.UpdateMacVendorsProgressUpdate += MacVendorLookup_RefrechMacProgressUpdated;
+MacVendorCache.UpdateMacVendorsComplete += MacVendorLookup_RefreshMacVendorsComplete;
+MacVendorCache.UpdateMacVendorsForHosts(networkScanner.NetworkInfo.Hosts);
 
 if (JsonRequested(args))
 {
@@ -100,12 +102,12 @@ void NetworkScanner_IpScanCompleted(object? sender, EventArgs e)
 }
 
 // MAC Vendor Lookup event handlers
-void MacVendorLookup_RefreshMacVendorsComplete(object? sender, MacVendorLookup.ProgressCompletedEventArgs e)
+void MacVendorLookup_RefreshMacVendorsComplete(object? sender, MacVendorCache.ProgressCompletedEventArgs e)
 {
     Console.Error.WriteLine($" - {e.CacheItemsCurrent} Current, {e.CacheItemsAdded} Added, {e.CacheItemsUpdated} Updated");
 }
 
-void MacVendorLookup_RefrechMacProgressUpdated(object? sender, MacVendorLookup.ProgressUpdatedEventArgs e)
+void MacVendorLookup_RefrechMacProgressUpdated(object? sender, MacVendorCache.ProgressUpdatedEventArgs e)
 {
     Console.Error.Write(String.Format("\rUpdating MAC vendor cache... {0}", e.ProgressPercent.ToString("P0")));
 }

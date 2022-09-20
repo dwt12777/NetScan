@@ -5,18 +5,17 @@ using System.Text.Json;
 
 namespace NetScan
 {
-    public static class MacVendorLookup
+    public static class MacVendorCache
     {
         private static readonly HttpClient _client = new HttpClient();
         private static DateTime _lastRequestTime = DateTime.Now;
         private static List<MacVendor> _macVendorCache = GetMacVendorsFromCache();
-        private static Stopwatch _stopwatch = new Stopwatch();
         private static int _cacheItemsCurrent = 0;
         private static int _cacheItemsAdded = 0;
         private static int _cacheItemsUpdated = 0;
 
-        public static event EventHandler<ProgressCompletedEventArgs> RefreshMacVendorsComplete;
-        public static event EventHandler<ProgressUpdatedEventArgs> RefrechMacProgressUpdated;
+        public static event EventHandler<ProgressUpdatedEventArgs> UpdateMacVendorsProgressUpdate;
+        public static event EventHandler<ProgressCompletedEventArgs> UpdateMacVendorsComplete;
 
         public static string MacVendorCacheFile
         {
@@ -31,13 +30,20 @@ namespace NetScan
 
         public static string GetMacVendor(string macAddress)
         {
-            int cacheDayThreshold = int.Parse(ConfigurationManager.AppSettings.Get("CacheDayThreshold"));
+
+            int cacheDays = int.Parse(ConfigurationManager.AppSettings.Get("CacheDayThreshold") ?? 365.ToString());
 
             var macVendor = _macVendorCache
-                .Where(v => (DateTime.Now - v.LookupDate).TotalDays < cacheDayThreshold)
+                .Where(v => (DateTime.Now - v.LookupDate).TotalDays < cacheDays)
                 .FirstOrDefault(v => v.MacAddress == macAddress);
 
-            if (macVendor == null)
+            // if macVendor isn't null that means there's an existing entry in the cache within the right date range
+            if (macVendor != null)
+            {
+                _cacheItemsCurrent++;
+            }
+            // if it is null, ether the cached entry has aged out or there isn't one at all, in eaither case, need to look it up through the API
+            else
             {
                 macVendor = GetMacVendorFromApi(macAddress);
 
@@ -53,30 +59,28 @@ namespace NetScan
                     _cacheItemsAdded++;
                 }
 
-                // If API didn't return a value, create MV with empty name for cache
+                // If API didn't return a value, create MV with empty name for cache so subsequent runs don't keep trying to look it up
                 if (macVendor == null)
                 {
                     macVendor = new MacVendor() { MacAddress = macAddress, LookupDate = DateTime.Now, Vendor = null };
                 }
-                // add the new entry retrived from API (will have updated vendor name and timestamp)
+
+                // add the new entry to the cache
                 _macVendorCache.Add(macVendor);
                 _macVendorCache = _macVendorCache.OrderBy(c => c.LookupDate).ToList();
                 string json = JsonSerializer.Serialize<List<MacVendor>>(_macVendorCache);
                 File.WriteAllText(MacVendorCacheFile, json);
             }
-            else
-            {
-                _cacheItemsCurrent++;
-            }
 
             return macVendor.Vendor;
         }
 
-        public static List<HostInfo> RefreshMacVendors(List<HostInfo> hosts)
+        public static void UpdateMacVendorsForHosts(List<HostInfo> hosts)
         {
-            _stopwatch.Start();
+            var stopwatch = new Stopwatch();
+            stopwatch.Start();
 
-            List<string> macAddresses = hosts.Select(x => x.MacAddress).Distinct().ToList();
+            var macAddresses = hosts.Select(x => x.MacAddress).Distinct().ToList();
 
             var progressArgs = new ProgressUpdatedEventArgs()
             {
@@ -88,31 +92,29 @@ namespace NetScan
             _cacheItemsUpdated = 0;
             _cacheItemsCurrent = 0;
 
-            foreach (var m in macAddresses)
+            foreach (var ma in macAddresses)
             {
-                var macVendor = GetMacVendor(m);
+                var macVendor = GetMacVendor(ma);
                 hosts
-                    .Where(h => h.MacAddress == m)
+                    .Where(h => h.MacAddress == ma)
                     .ToList()
                     .ForEach(h => h.MacVendor = macVendor);
                 progressArgs.WorkItemCompletedCount++;
-                progressArgs.ElapsedTime = _stopwatch.Elapsed;
+                progressArgs.ElapsedTime = stopwatch.Elapsed;
                 OnRefrechMacProgressUpdated(progressArgs);
             }
 
-            _stopwatch.Stop();
+            stopwatch.Stop();
 
             var completedArgs = new ProgressCompletedEventArgs()
             {
                 CacheItemsCurrent = _cacheItemsCurrent,
                 CacheItemsAdded = _cacheItemsAdded,
                 CacheItemsUpdated = _cacheItemsUpdated,
-                ProcessingTime = _stopwatch.Elapsed
+                ProcessingTime = stopwatch.Elapsed
             };
 
-            RefreshMacVendorsComplete?.Invoke(null, completedArgs);
-
-            return hosts;
+            UpdateMacVendorsComplete?.Invoke(null, completedArgs);
         }
 
         private static List<MacVendor> GetMacVendorsFromCache()
@@ -130,14 +132,14 @@ namespace NetScan
 
         private static MacVendor GetMacVendorFromApi(string macAddress)
         {
-            var requestString = $"https://api.macvendors.com/{macAddress}";
-            var requestIntervalInMilliseconts = 1000;
+            var requestString = $"{Properties.Resources.MacVendorApiUrl}{macAddress}";
+            var throttle = int.Parse(Properties.Resources.MacVendorApiThrottleMilliseconds);
 
             TimeSpan lastRequestAge = DateTime.Now - _lastRequestTime;
 
-            if (lastRequestAge.TotalMilliseconds < requestIntervalInMilliseconts)
+            if (lastRequestAge.TotalMilliseconds < throttle)
             {
-                var sleepMilliseconds = requestIntervalInMilliseconts - (int)lastRequestAge.TotalMilliseconds;
+                var sleepMilliseconds = throttle - (int)lastRequestAge.TotalMilliseconds;
                 Thread.Sleep(sleepMilliseconds);
             }
 
@@ -155,7 +157,6 @@ namespace NetScan
             {
                 macVendorString = null;
             }
-
 
             _lastRequestTime = DateTime.Now;
 
@@ -177,13 +178,13 @@ namespace NetScan
 
         public static void OnRefrechMacProgressUpdated(ProgressUpdatedEventArgs e)
         {
-            EventHandler<ProgressUpdatedEventArgs> handler = RefrechMacProgressUpdated;
+            EventHandler<ProgressUpdatedEventArgs> handler = UpdateMacVendorsProgressUpdate;
             handler?.Invoke(null, e);
         }
 
         public static void OnRefreshMacVendorsComplete(ProgressCompletedEventArgs e)
         {
-            EventHandler<ProgressCompletedEventArgs> handler = RefreshMacVendorsComplete;
+            EventHandler<ProgressCompletedEventArgs> handler = UpdateMacVendorsComplete;
             handler?.Invoke(null, e);
         }
 

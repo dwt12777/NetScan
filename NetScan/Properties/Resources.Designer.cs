@@ -100,6 +100,24 @@ namespace NetScan.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to 1000.
+        /// </summary>
+        internal static string MacVendorApiThrottleMilliseconds {
+            get {
+                return ResourceManager.GetString("MacVendorApiThrottleMilliseconds", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to https://api.macvendors.com/.
+        /// </summary>
+        internal static string MacVendorApiUrl {
+            get {
+                return ResourceManager.GetString("MacVendorApiUrl", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to MacVendorCache.json.
         /// </summary>
         internal static string MacVendorCacheFileName {
