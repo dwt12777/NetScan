@@ -35,7 +35,7 @@ namespace NetScan
             {
                 ArgType myType;
 
-                bool isValidArg = AllowedArgs.TryGetValue(arg, out myType);
+                bool isValidArg = AllowedArgs.TryGetValue(arg.ToLower(), out myType);
 
                 if (isValidArg)
                 {

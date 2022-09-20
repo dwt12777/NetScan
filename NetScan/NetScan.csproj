@@ -7,8 +7,8 @@
     <Nullable>enable</Nullable>
     <Company>ReardenTools</Company>
     <Description>Scans local network for online hosts</Description>
-    <AssemblyVersion>1.2.2.0</AssemblyVersion>
-    <FileVersion>1.2.2.0</FileVersion>
+    <AssemblyVersion>1.2.3.0</AssemblyVersion>
+    <FileVersion>1.2.3.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
