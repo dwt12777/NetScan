@@ -162,7 +162,7 @@ And when updating the MAC vendor cache, verbose mode shows you:
 * Processing Time: how long it took to check (and update if necessary) the cache
 
 ## About the MAC Vendor Cache
-MAC vendor names are cached in a JSON file located at `%AppData%\NetScan\MacVendorCache.json`.  If you run 'netscan /c' it'll delete that file and build a fresh one the next time you run a scan.  Just remember, if you're rebuilding the cache from scratch it'll take longer to run because look-ups are throttled to 1 per second.
+MAC vendor names are cached in a JSON file located at `%AppData%\NetScan\MacVendorCache.json`.  If you run `netscan /c` it'll delete that file and build a fresh one the next time you run a scan.  Just remember, if you're rebuilding the cache from scratch it'll take longer to run because look-ups are throttled to 1 per second.
 
 Also, by default cached values are used for up to 365 days after being added to the cache.  This is controlled in a config file found wherever you installed the program, typically "C:\Program Files\ReardenTools\NetScan\NetScan.dll.config"  
 
