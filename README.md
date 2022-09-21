@@ -23,10 +23,11 @@ USAGE
 
 MAC VENDOR CACHE
 ----------------
-Netscan uses a third party provider (https://macvendors.com/) to retrieve MAC vendor names. The process is throttled to
-allow one lookup per second. However, Netscan caches the results so that subsequent executions use the cached data and
-return your results much faster. By default, the items are cached for 365 days. You can change that by editing the file
-"NetScan.dll.config" found in the installation directory.
+Netscan uses a third party provider (https://macvendors.com/) to retrieve MAC vendor names. The process
+is throttled to allow one lookup per second. However, Netscan caches the results so that subsequent
+executions use the cached data and return your results much faster. By default, the items are cached for
+365 days. You can change that by editing the file "NetScan.dll.config" found in the installation
+directory.
 ```
 
 ## ABOUT
