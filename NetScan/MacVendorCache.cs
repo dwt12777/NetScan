@@ -42,7 +42,10 @@ namespace NetScan
             // if it is null, ether the cached entry has aged out or there isn't one at all, in eaither case, need to look it up through the API
             else
             {
-                macVendor = GetMacVendorFromApi(macAddress);
+                if (macAddress == null)
+                    macVendor = new MacVendor() { LookupDate = DateTime.Now, Vendor = "[NO MAC ADDRESS]" };
+                else
+                    macVendor = GetMacVendorFromApi(macAddress);
 
                 // remove the cached entry, if any (there may be one in there older than cachDayThreshold)
                 var cachedEntry = _macVendorCache.FirstOrDefault(c => c.MacAddress == macAddress);
@@ -186,7 +189,5 @@ namespace NetScan
             public double ProgressPercent => (double)WorkItemCompletedCount / (double)WorkItemTotalCount;
             public TimeSpan ElapsedTime { get; set; }
         }
-
-        
     }
 }

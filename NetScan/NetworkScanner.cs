@@ -243,6 +243,13 @@ namespace NetScan
 
         private string GetMacByIp(IPAddress ipAddress)
         {
+            bool debugFlag;
+            if (ipAddress.ToString() == "192.168.22.13")
+            {
+                debugFlag = true;
+            }
+
+            
             var macIpPairs = GetAllMacAddressesAndIppairs();
             int index = macIpPairs.FindIndex(x => x.IpAddress == ipAddress.ToString());
             if (index >= 0)
